@@ -6,9 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Play, LogOut, Plus, CheckCircle2, Download, CreditCard,
   Trash2, AlertTriangle, Video, IndianRupee, ChevronRight,
-  Zap, Shield, Users, BarChart3, TrendingUp, Clock,
-  Wallet, Eye, EyeOff, Layers, Star, ArrowUpRight,
-  ChevronDown, Check
+  Zap, Shield, Users, TrendingUp, Clock,
+  Wallet, Layers, ArrowUpRight,
+  ChevronDown, Check, Flame, Wifi, WifiOff
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -177,7 +177,7 @@ function ProjectCard({ project, onClick, onDelete, isAdmin }: { project: Project
 /* ─── MAIN DASHBOARD ─── */
 export default function Dashboard() {
   const [_, setLocation] = useLocation();
-  const { currentUser, logout, projects, users, addProject, addUser, updateProject, deleteProject, deleteUser } = useApp();
+  const { currentUser, logout, projects, users, addProject, addUser, updateProject, deleteProject, deleteUser, isProductionMode, firebaseReady, firebaseConfig } = useApp();
   const { toast } = useToast();
 
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
@@ -186,7 +186,7 @@ export default function Dashboard() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>("upi");
 
   const clientUsers = users.filter(u => u.role === "client");
   const paidProjects = projects.filter(p => p.status === "paid");
@@ -223,13 +223,39 @@ export default function Dashboard() {
     toast({ title: "Payment Recorded ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
   };
 
-  const simulatePayment = () => {
-    setIsSimulatingPayment(true);
-    setTimeout(() => {
-      setIsSimulatingPayment(false);
-      setIsPaymentOpen(false);
-      if (selectedProject) handleMarkPaid(selectedProject);
-    }, 2400);
+  const handlePayNow = () => {
+    const rzpKey = firebaseConfig?.razorpayKey;
+    // Use real Razorpay if key is configured
+    if (isProductionMode && rzpKey && selectedProject && typeof window.Razorpay !== "undefined") {
+      const rzp = new window.Razorpay({
+        key: rzpKey,
+        amount: selectedProject.price * 100, // paise
+        currency: "INR",
+        name: "CutStudio Pro",
+        description: selectedProject.title,
+        handler: (response) => {
+          setIsPaymentOpen(false);
+          handleMarkPaid(selectedProject);
+          toast({
+            title: "Payment Successful! 🎉",
+            description: `Payment ID: ${response.razorpay_payment_id}`,
+            className: "bg-[#0a0a16] border-[#00e57a] text-white",
+          });
+        },
+        prefill: { name: currentUser?.name, email: currentUser?.email },
+        theme: { color: "#e8a020" },
+        modal: { ondismiss: () => setIsSimulatingPayment(false) },
+      });
+      rzp.open();
+    } else {
+      // Demo mode: simulate payment
+      setIsSimulatingPayment(true);
+      setTimeout(() => {
+        setIsSimulatingPayment(false);
+        setIsPaymentOpen(false);
+        if (selectedProject) handleMarkPaid(selectedProject);
+      }, 2400);
+    }
   };
 
   const handleDeleteProject = (id: string, e: React.MouseEvent) => {
@@ -243,6 +269,7 @@ export default function Dashboard() {
   if (!currentUser) return null;
 
   const isAdmin = currentUser.role === "admin";
+  const hasRazorpay = isProductionMode && !!firebaseConfig?.razorpayKey;
 
   return (
     <div className="min-h-screen bg-[#05050d] text-white pb-20">
@@ -273,6 +300,11 @@ export default function Dashboard() {
               </button>
             </div>
           )}
+
+          {/* Firebase / Demo status pill */}
+          <div className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold ${firebaseReady ? "bg-[#00e57a]/8 border-[#00e57a]/20 text-[#00e57a]" : "bg-[#1f1f2e] border-[#2a2a3a] text-[#505060]"}`}>
+            {firebaseReady ? <><Flame className="w-3 h-3" /> Firebase Live</> : <><WifiOff className="w-3 h-3" /> Demo Mode</>}
+          </div>
 
           <div className="flex items-center gap-2.5 bg-[#0a0a16] border border-[#1f1f2e] rounded-full px-3 py-1.5">
             <Avatar className="h-7 w-7 border-2" style={{ borderColor: isAdmin ? "#e8a020" : "#00e5dc" }}>
@@ -534,7 +566,7 @@ export default function Dashboard() {
                       </div>
                       {!isAdmin ? (
                         <button className="btn-gold w-full h-12 rounded-xl font-bold text-base relative overflow-hidden shadow-[0_0_24px_rgba(232,160,32,0.35)]" onClick={() => setIsPaymentOpen(true)}>
-                          <span className="relative z-10 flex items-center justify-center gap-2"><IndianRupee className="w-4 h-4" /> Pay Now to Unlock</span>
+                          <span className="relative z-10 flex items-center justify-center gap-2"><IndianRupee className="w-4 h-4" /> {hasRazorpay ? "Pay via Razorpay" : "Pay Now to Unlock"}</span>
                         </button>
                       ) : (
                         <button className="w-full h-11 rounded-xl border border-[#00e57a]/40 text-[#00e57a] hover:bg-[#00e57a]/10 transition-all font-bold text-sm" onClick={() => handleMarkPaid(selectedProject)}>
@@ -602,7 +634,7 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                <button className="btn-gold w-full h-12 rounded-xl font-bold relative overflow-hidden" onClick={simulatePayment}>
+                <button className="btn-gold w-full h-12 rounded-xl font-bold relative overflow-hidden" onClick={handlePayNow}>
                   <span className="relative z-10 flex items-center justify-center gap-2">Pay Now <ArrowUpRight className="w-4 h-4" /></span>
                 </button>
                 <p className="text-center text-[#404050] text-xs flex items-center justify-center gap-1.5">
