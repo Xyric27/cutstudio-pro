@@ -5,7 +5,8 @@ import { useApp, Project, User } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Play, LogOut, Plus, Search, CheckCircle2, Download, CreditCard, 
-  Trash2, AlertTriangle, ExternalLink, Video, IndianRupee, ChevronRight
+  Trash2, AlertTriangle, ExternalLink, Video, IndianRupee, ChevronRight,
+  Zap, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
