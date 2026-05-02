@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #05050d;
+  --bg2: #0a0a16;
+  --bg3: #0f0f20;
+  --gold: #e8a020;
+  --gold2: #f5c060;
+  --gold3: #ffd980;
+  --cyan: #00e5dc;
+  --magenta: #e040a0;
+  --red: #ff3b5c;
+  --green: #00e57a;
+
+  --color-primary: #e8a020;
+  --color-secondary: #f5c060;
+  --color-accent: #00e5dc;
+  --color-bg-light: #05050d;
+  --color-bg-dark: #05050d;
+  --color-bg-muted: #0f0f20;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255,255,255,0.6);
+  --color-text-muted: rgba(255,255,255,0.4);
+  --color-text-inverse: #000000;
+  --color-success: #00e57a;
+  --color-warning: #f5c060;
+  --color-error: #ff3b5c;
+
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-body: 'Syne', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-accent: var(--color-accent);
+  --color-bg-light: var(--color-bg-light);
+  --color-bg-dark: var(--color-bg-dark);
+  --color-bg-muted: var(--color-bg-muted);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+.text-gold {
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gold3 {
+  background: linear-gradient(135deg, var(--gold3), var(--gold), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.display { font-family: var(--font-display); }
+.mono { font-family: var(--font-mono); }
