@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CutStudio Pro — Professional Video Editor Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#05050d;
+  --bg2:#0a0a16;
+  --bg3:#0f0f20;
+  --gold:#e8a020;
+  --gold2:#f5c060;
+  --gold3:#ffd980;
+  --cyan:#00e5dc;
+  --magenta:#e040a0;
+  --red:#ff3b5c;
+  --green:#00e57a;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.12);
+  --text:#fff;
+  --muted:rgba(255,255,255,0.4);
+  --muted2:rgba(255,255,255,0.6);
+  --card:rgba(255,255,255,0.025);
+  --card2:rgba(255,255,255,0.045);
+}
+
+html{scroll-behavior:smooth}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;overflow-x:hidden}
+
+/* GRAIN OVERLAY */
+body::after{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:99998;opacity:0.6;
+}
+
+/* ORBS */
+.orb{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,rgba(232,160,32,0.12),transparent 70%);top:-250px;right:-200px}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,rgba(0,229,220,0.07),transparent 70%);bottom:-200px;left:-150px}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(224,64,160,0.06),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%)}
+
+/* ══════════ LOADING ══════════ */
+#loading-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:99999;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity 0.6s ease-out;
+}
+#loading-screen.hidden{opacity:0;pointer-events:none}
+
+.loader-inner{text-align:center}
+.loader-logo{
+  font-family:'Bebas Neue';font-size:5rem;letter-spacing:12px;
+  background:linear-gradient(135deg,var(--gold3),var(--gold),var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:logoPulse 2s ease-in-out infinite;
+  display:block;margin-bottom:.5rem;
+}
+@keyframes logoPulse{0%,100%{opacity:1;letter-spacing:12px}50%{opacity:.8;letter-spacing:16px}}
+.loader-tag{font-size:.72rem;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:3rem}
+
+.loader-bar-wrap{width:280px;height:2px;background:rgba(255,255,255,0.06);border-radius:4px;margin:0 auto;overflow:hidden}
+.loader-bar{height:100%;width:0;background:linear-gradient(90deg,var(--gold),var(--gold3),var(--cyan));animation:barLoad 2s ease-out forwards;border-radius:4px}
+@keyframes barLoad{0%{width:0}60%{width:75%}100%{width:100%}}
+.loader-dots{margin-top:1.5rem;display:flex;gap:.5rem;justify-content:center}
+.loader-dots span{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s ease-in-out infinite}
+.loader-dots span:nth-child(2){animation-delay:.2s;background:var(--gold2)}
+.loader-dots span:nth-child(3){animation-delay:.4s;background:var(--cyan)}
+@keyframes dotPulse{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.5);opacity:1}}
+
+/* ══════════ HOME ══════════ */
+#home-page{display:none;position:relative;z-index:1}
+
+/* NAV HOME */
+.home-nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:1.4rem 3rem;display:flex;justify-content:space-between;align-items:center;
+  background:linear-gradient(to bottom,rgba(5,5,13,0.9),transparent);
+}
+.home-nav-brand{font-family:'Bebas Neue';font-size:1.6rem;letter-spacing:4px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btn-launch{
+  padding:.7rem 1.8rem;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border:none;border-radius:10px;color:#000;font-weight:700;font-size:.9rem;cursor:pointer;
+  font-family:'Syne';
+  box-shadow:0 4px 24px rgba(232,160,32,0.35);
+  transition:all .3s;
+}
+.btn-launch:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(232,160,32,0.5)}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:8rem 2rem 4rem;text-align:center;position:relative}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(232,160,32,0.06),transparent);
+  pointer-events:none;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.45rem 1.2rem;border-radius:30px;
+  background:rgba(232,160,32,0.1);border:1px solid rgba(232,160,32,0.3);
+  font-size:.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold2);
+  margin-bottom:2rem;font-weight:600;
+}
+.hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);animation:dotPulse 1.5s infinite}
+
+.hero-title{
+  font-family:'Bebas Neue';
+  font-size:clamp(4rem,12vw,8.5rem);
+  letter-spacing:2px;line-height:.95;
+  margin-bottom:2rem;
+}
+.hero-title .line1{
+  display:block;
+  background:linear-gradient(135deg,#fff 0%,rgba(255,255,255,.7) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-title .line2{
+  display:block;
+  background:linear-gradient(135deg,var(--gold),var(--gold2),var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+
+.hero-sub{font-size:1.15rem;color:var(--muted2);max-width:580px;margin:0 auto 3rem;font-weight:400}
+
+.hero-cta{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.btn-cta-primary{
+  padding:1.1rem 2.8rem;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border:none;border-radius:14px;color:#000;font-weight:700;font-size:1rem;cursor:pointer;
+  font-family:'Syne';letter-spacing:.5px;
+  box-shadow:0 8px 40px rgba(232,160,32,0.4);
+  transition:all .3s;position:relative;overflow:hidden;
+}
+.btn-cta-primary::before{
+  content:'';position:absolute;inset:-1px;
+  background:linear-gradient(135deg,var(--gold3),var(--gold),var(--gold2));
+  border-radius:15px;z-index:-1;opacity:0;transition:opacity .3s;
+}
+.btn-cta-primary:hover{transform:translateY(-3px);box-shadow:0 16px 50px rgba(232,160,32,0.5)}
+.btn-cta-sec{
+  padding:1.1rem 2.8rem;background:transparent;
+  border:1.5px solid rgba(255,255,255,0.15);border-radius:14px;
+  color:var(--muted2);font-weight:600;font-size:1rem;cursor:pointer;
+  font-family:'Syne';transition:all .3s;
+}
+.btn-cta-sec:hover{border-color:var(--gold);color:var(--gold)}
+
+/* STATS HERO */
+.hero-stats{
+  display:flex;gap:3rem;justify-content:center;margin-top:5rem;flex-wrap:wrap;
+  padding-top:3rem;border-top:1px solid var(--border);
+}
+.hstat{text-align:center}
+.hstat-num{font-family:'JetBrains Mono';font-size:2.2rem;font-weight:700;color:var(--gold2)}
+.hstat-label{font-size:.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:.2rem}
+
+/* FEATURES */
+.features{padding:8rem 2rem;max-width:1300px;margin:0 auto}
+.sec-eyebrow{font-size:.72rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:1rem;text-align:center}
+.sec-title{font-family:'Bebas Neue';font-size:clamp(2.5rem,5vw,4rem);letter-spacing:2px;text-align:center;margin-bottom:5rem}
+
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
+.feat-card{
+  position:relative;
+  background:var(--bg3);
+  border:1px solid var(--border);
+  border-radius:20px;padding:2.5rem;
+  overflow:hidden;
+  transition:all .4s cubic-bezier(0.23,1,0.32,1);
+}
+.feat-card::before{
+  content:'';position:absolute;inset:0;border-radius:20px;
+  background:linear-gradient(135deg,rgba(232,160,32,0.08),transparent,rgba(0,229,220,0.04));
+  opacity:0;transition:opacity .4s;
+}
+.feat-card::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  opacity:0;transition:opacity .4s;
+}
+.feat-card:hover{border-color:rgba(232,160,32,0.25);transform:translateY(-10px)}
+.feat-card:hover::before,.feat-card:hover::after{opacity:1}
+
+.feat-icon-box{
+  width:56px;height:56px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(232,160,32,0.15),rgba(232,160,32,0.05));
+  border:1px solid rgba(232,160,32,0.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.6rem;margin-bottom:1.5rem;
+}
+.feat-title{font-family:'Bebas Neue';font-size:1.4rem;letter-spacing:1.5px;margin-bottom:.75rem;color:var(--text)}
+.feat-desc{color:var(--muted);font-size:.9rem;line-height:1.7}
+.feat-tag{
+  display:inline-block;margin-top:1.5rem;
+  font-size:.7rem;letter-spacing:1.5px;text-transform:uppercase;
+  padding:.3rem .8rem;border-radius:20px;font-weight:700;
+  background:rgba(232,160,32,0.1);color:var(--gold2);
+  border:1px solid rgba(232,160,32,0.2);
+}
+
+/* FOOTER */
+.footer{
+  padding:4rem 2rem;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;
+  max-width:1300px;margin:0 auto;
+}
+.footer-brand{font-family:'Bebas Neue';font-size:1.8rem;letter-spacing:3px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.footer-copy{color:var(--muted);font-size:.82rem}
+
+/* ══════════ LOGIN ══════════ */
+#login-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:1000;
+  display:none;align-items:center;justify-content:center;padding:1rem;
+}
+.login-wrap{width:100%;max-width:460px;animation:slideUp .5s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+
+.login-brand{text-align:center;margin-bottom:2.5rem}
+.login-logo{font-family:'Bebas Neue';font-size:4rem;letter-spacing:10px;
+  background:linear-gradient(135deg,var(--gold),var(--gold2),var(--magenta));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.login-ver{font-size:.7rem;letter-spacing:4px;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono'}
+
+.login-card{
+  background:var(--bg3);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:24px;padding:2.75rem;
+  box-shadow:0 30px 80px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.06);
+  position:relative;overflow:hidden;
+}
+.login-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,160,32,0.5),transparent);
+}
+
+.lfield{margin-bottom:1.4rem}
+.lfield label{
+  display:block;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:.6rem;font-weight:600;
+}
+.lfield input{
+  width:100%;padding:1rem 1.2rem;
+  background:rgba(255,255,255,0.04);
+  border:1.5px solid rgba(255,255,255,0.08);
+  border-radius:12px;color:var(--text);
+  font-size:.95rem;font-family:'Syne';
+  transition:border-color .3s,background .3s;
+}
+.lfield input:focus{outline:none;border-color:rgba(232,160,32,0.5);background:rgba(232,160,32,0.03)}
+.lfield input::placeholder{color:var(--muted)}
+
+.err-msg{
+  color:#ff6b6b;font-size:.85rem;margin-top:.5rem;display:none;
+  padding:.75rem 1rem;background:rgba(255,59,92,0.08);
+  border:1px solid rgba(255,59,92,0.2);border-radius:10px;
+}
+
+.btn-login{
+  width:100%;padding:1.1rem;margin-top:.25rem;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border:none;border-radius:12px;color:#000;
+  font-size:1rem;font-weight:700;cursor:pointer;
+  font-family:'Syne';letter-spacing:.5px;
+  box-shadow:0 6px 30px rgba(232,160,32,0.35);
+  transition:all .3s;
+}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(232,160,32,0.5)}
+
+.divider{display:flex;align-items:center;gap:1rem;margin:1.75rem 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.divider span{font-size:.75rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
+
+.quick-btns{display:flex;flex-direction:column;gap:.65rem}
+.quick-btn{
+  width:100%;padding:.95rem 1.2rem;
+  border:1.5px solid rgba(255,255,255,0.08);border-radius:12px;
+  background:rgba(255,255,255,0.02);
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;gap:1rem;
+  font-weight:600;font-family:'Syne';font-size:.9rem;
+  transition:all .3s;
+}
+.quick-btn:hover{border-color:rgba(232,160,32,0.4);background:rgba(232,160,32,0.05);transform:translateX(4px)}
+.quick-btn-icon{
+  width:40px;height:40px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;
+}
+.quick-btn-icon.admin{background:linear-gradient(135deg,rgba(232,160,32,0.2),rgba(232,160,32,0.05));border:1px solid rgba(232,160,32,0.2)}
+.quick-btn-icon.client{background:linear-gradient(135deg,rgba(0,229,220,0.2),rgba(0,229,220,0.05));border:1px solid rgba(0,229,220,0.2)}
+.quick-btn-sub{font-size:.75rem;color:var(--muted);font-weight:400;margin-top:.1rem}
+
+.mode-row{
+  margin-top:1.5rem;padding:1rem 1.2rem;
+  background:rgba(139,92,246,0.06);
+  border:1px solid rgba(139,92,246,0.15);border-radius:12px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.mode-row label{display:flex;align-items:center;gap:.75rem;cursor:pointer;font-size:.87rem;color:var(--muted2)}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{
+  position:absolute;inset:0;border-radius:24px;
+  background:rgba(255,255,255,0.1);cursor:pointer;transition:.3s;
+}
+.toggle-slider::before{
+  content:'';position:absolute;width:18px;height:18px;
+  border-radius:50%;background:#fff;bottom:3px;left:3px;
+  transition:.3s;box-shadow:0 2px 4px rgba(0,0,0,0.3);
+}
+.toggle input:checked + .toggle-slider{background:linear-gradient(135deg,var(--gold),var(--gold2))}
+.toggle input:checked + .toggle-slider::before{transform:translateX(20px)}
+
+.config-panel{
+  margin-top:1rem;padding:1.2rem;
+  background:rgba(255,59,92,0.04);border:1px solid rgba(255,59,92,0.15);border-radius:12px;
+  display:none;
+}
+.config-panel.active{display:block}
+.cfg-label{font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:.35rem;display:block;font-weight:600}
+.cfg-input{
+  width:100%;padding:.7rem 1rem;margin-bottom:.75rem;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-size:.85rem;font-family:'JetBrains Mono';
+}
+.cfg-input:focus{outline:none;border-color:rgba(255,59,92,0.4)}
+
+.back-home{
+  text-align:center;margin-top:1.5rem;
+  font-size:.85rem;color:var(--muted);cursor:pointer;
+  transition:color .3s;display:block;
+}
+.back-home:hover{color:var(--gold)}
+
+/* ══════════ APP NAV ══════════ */
+.app{display:none;position:relative;z-index:1}
+.app.visible{display:block}
+
+.app-nav{
+  position:sticky;top:0;
+  background:rgba(5,5,13,0.85);backdrop-filter:blur(32px);
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  padding:0 2.5rem;height:64px;
+  display:flex;justify-content:space-between;align-items:center;z-index:100;
+}
+.app-nav::after{
+  content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,160,32,0.3),transparent);
+}
+.app-brand{
+  font-family:'Bebas Neue';font-size:1.5rem;letter-spacing:4px;cursor:pointer;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.nav-right{display:flex;align-items:center;gap:1rem}
+.nav-user-pill{
+  display:flex;align-items:center;gap:.65rem;
+  padding:.45rem .9rem .45rem .45rem;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);border-radius:30px;
+}
+.nav-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--magenta));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;color:#000;font-size:.75rem;flex-shrink:0;
+}
+.nav-name{font-size:.88rem;font-weight:600;color:var(--muted2)}
+.btn-signout{
+  padding:.55rem 1.15rem;background:transparent;
+  border:1px solid rgba(255,59,92,0.25);border-radius:8px;
+  color:rgba(255,59,92,0.7);cursor:pointer;font-size:.82rem;
+  font-family:'Syne';font-weight:600;transition:all .3s;
+}
+.btn-signout:hover{border-color:var(--red);color:var(--red);background:rgba(255,59,92,0.06)}
+
+/* ══════════ CONTAINER ══════════ */
+.container{max-width:1340px;margin:0 auto;padding:2.5rem}
+.page{display:none}.page.active{display:block;animation:pageIn .5s cubic-bezier(0.23,1,0.32,1)}
+@keyframes pageIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══════════ TABS ══════════ */
+.tabs-wrap{
+  display:inline-flex;padding:4px;
+  background:rgba(255,255,255,0.03);
+  border:1px solid var(--border);border-radius:14px;
+  margin-bottom:2.5rem;gap:4px;
+}
+.tab{
+  padding:.65rem 1.75rem;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;border-radius:11px;
+  font-weight:600;font-family:'Syne';font-size:.9rem;
+  transition:all .3s;
+}
+.tab.active{
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#000;
+  box-shadow:0 4px 20px rgba(232,160,32,0.3);
+}
+.tab:not(.active):hover{color:var(--text);background:rgba(255,255,255,0.04)}
+
+/* ══════════ PAGE HEADER ══════════ */
+.page-head{margin-bottom:2.5rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;flex-wrap:wrap}
+.page-head-title{font-family:'Bebas Neue';font-size:2.8rem;letter-spacing:2px;line-height:1}
+.page-head-sub{color:var(--muted);font-size:.88rem;margin-top:.4rem}
+
+/* ══════════ STAT CARDS ══════════ */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:1rem;margin-bottom:2.5rem}
+.stat-card{
+  background:var(--bg3);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:18px;padding:1.5rem 1.4rem;
+  position:relative;overflow:hidden;
+  transition:all .3s;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  border-radius:18px 18px 0 0;
+}
+.stat-card.s-gold::before{background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.stat-card.s-green::before{background:linear-gradient(90deg,transparent,var(--green),transparent)}
+.stat-card.s-cyan::before{background:linear-gradient(90deg,transparent,var(--cyan),transparent)}
+.stat-card.s-magenta::before{background:linear-gradient(90deg,transparent,var(--magenta),transparent)}
+.stat-card.s-white::before{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)}
+.stat-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.14)}
+
+.stat-icon{font-size:1.5rem;margin-bottom:1rem;display:block}
+.stat-label{font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:.5rem}
+.stat-val{font-family:'JetBrains Mono';font-size:2rem;font-weight:700;line-height:1}
+.stat-val.gold{background:linear-gradient(135deg,var(--gold),var(--gold2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-val.green{color:var(--green)}
+.stat-val.cyan{color:var(--cyan)}
+.stat-val.magenta{color:var(--magenta)}
+
+/* ══════════ PROJECT CARDS ══════════ */
+.projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(370px,1fr));gap:1.5rem}
+
+.project-card{
+  background:var(--bg3);border:1px solid rgba(255,255,255,0.08);
+  border-radius:22px;overflow:hidden;
+  transition:all .4s cubic-bezier(0.23,1,0.32,1);
+  position:relative;
+}
+.project-card::after{
+  content:'';position:absolute;inset:0;border-radius:22px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0);
+  transition:box-shadow .4s;pointer-events:none;
+}
+.project-card:hover{transform:translateY(-8px);border-color:rgba(232,160,32,0.3)}
+.project-card:hover::after{box-shadow:inset 0 0 0 1px rgba(232,160,32,0.15)}
+
+/* THUMB */
+.card-thumb{
+  height:210px;position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.thumb-bg{position:absolute;inset:0}
+.thumb-bg-1{background:linear-gradient(135deg,#0d1b2a,#1a0a2e,#2d0a1e)}
+.thumb-bg-2{background:linear-gradient(135deg,#0a1628,#0d2818,#1a2010)}
+.thumb-bg-3{background:linear-gradient(135deg,#1a0a0a,#2d1a0a,#1a1a2d)}
+.thumb-bg-4{background:linear-gradient(135deg,#0a1a2d,#1a0a2a,#0d1a1a)}
+
+.thumb-pattern{
+  position:absolute;inset:0;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(255,255,255,0.015) 40px,rgba(255,255,255,0.015) 41px),
+                   repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,0.015) 40px,rgba(255,255,255,0.015) 41px);
+}
+.thumb-content{position:relative;z-index:1;text-align:center}
+.thumb-play{
+  width:56px;height:56px;border-radius:50%;
+  background:rgba(255,255,255,0.1);
+  border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.3rem;margin:0 auto .75rem;
+  backdrop-filter:blur(8px);
+  transition:all .3s;
+}
+.project-card:hover .thumb-play{background:rgba(232,160,32,0.2);border-color:rgba(232,160,32,0.5);transform:scale(1.1)}
+.thumb-dur{font-family:'JetBrains Mono';font-size:.72rem;color:rgba(255,255,255,0.5);letter-spacing:1.5px}
+
+.thumb-overlay{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:.85rem 1.1rem;
+  background:linear-gradient(to top,rgba(0,0,0,0.85),transparent);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.status-pill{
+  font-size:.65rem;letter-spacing:1.5px;text-transform:uppercase;
+  padding:.35rem .9rem;border-radius:20px;font-weight:700;
+}
+.pill-preview{background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.25)}
+.pill-paid{background:rgba(0,229,122,0.15);color:var(--green);border:1px solid rgba(0,229,122,0.25)}
+
+.thumb-client{font-size:.72rem;color:rgba(255,255,255,0.45);font-family:'JetBrains Mono'}
+
+/* CARD BODY */
+.card-body{padding:1.5rem 1.6rem 1.6rem}
+.card-title{
+  font-family:'Bebas Neue';font-size:1.55rem;letter-spacing:1px;
+  margin-bottom:.35rem;color:var(--text);
+}
+.card-desc{font-size:.82rem;color:var(--muted);margin-bottom:1.2rem;line-height:1.5}
+.card-divider{height:1px;background:rgba(255,255,255,0.06);margin-bottom:1.2rem}
+
+.card-price-row{display:flex;align-items:baseline;gap:.5rem;margin-bottom:1.4rem}
+.card-price-label{font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card-price{
+  font-family:'JetBrains Mono';font-size:1.9rem;font-weight:700;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+
+.card-actions{display:flex;gap:.6rem}
+.btn-card-primary{
+  flex:1;padding:.8rem 1rem;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border:none;border-radius:11px;color:#000;
+  font-weight:700;cursor:pointer;font-family:'Syne';font-size:.85rem;
+  transition:all .3s;
+  box-shadow:0 4px 20px rgba(232,160,32,0.25);
+}
+.btn-card-primary:hover{box-shadow:0 6px 30px rgba(232,160,32,0.4);transform:translateY(-1px)}
+.btn-card-danger{
+  padding:.8rem 1rem;
+  background:rgba(255,59,92,0.08);
+  border:1px solid rgba(255,59,92,0.2);border-radius:11px;
+  color:var(--red);cursor:pointer;font-family:'Syne';font-weight:600;font-size:.82rem;
+  transition:all .3s;
+}
+.btn-card-danger:hover{background:rgba(255,59,92,0.15);border-color:rgba(255,59,92,0.4)}
+
+/* ══════════ CLIENTS TABLE ══════════ */
+.table-wrap{
+  background:var(--bg3);border:1px solid rgba(255,255,255,0.08);
+  border-radius:20px;overflow:hidden;
+}
+.clients-table{width:100%;border-collapse:collapse}
+.clients-table th{
+  font-size:.68rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);padding:1rem 1.25rem;text-align:left;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  background:rgba(255,255,255,0.02);font-weight:700;
+}
+.clients-table td{
+  padding:1.1rem 1.25rem;
+  border-bottom:1px solid rgba(255,255,255,0.04);font-size:.9rem;
+}
+.clients-table tr:last-child td{border-bottom:none}
+.clients-table tr:hover td{background:rgba(255,255,255,0.02)}
+.td-avatar{
+  width:40px;height:40px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:700;color:#000;font-size:.82rem;
+  background:linear-gradient(135deg,var(--gold),var(--magenta));
+}
+.td-name{font-weight:600;margin-bottom:.15rem}
+.td-email{font-size:.78rem;color:var(--muted);font-family:'JetBrains Mono'}
+.td-badge{
+  display:inline-block;padding:.25rem .7rem;border-radius:20px;
+  font-size:.7rem;letter-spacing:1px;text-transform:uppercase;font-weight:700;
+  background:rgba(0,229,122,0.1);color:var(--green);border:1px solid rgba(0,229,122,0.2);
+}
+
+/* ══════════ EMPTY ══════════ */
+.empty-state{
+  grid-column:1/-1;text-align:center;
+  padding:6rem 2rem;
+}
+.empty-icon-wrap{
+  width:80px;height:80px;border-radius:20px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;margin:0 auto 1.5rem;
+}
+.empty-title{font-family:'Bebas Neue';font-size:1.8rem;letter-spacing:2px;margin-bottom:.5rem;color:var(--muted2)}
+.empty-sub{color:var(--muted);font-size:.88rem}
+
+/* ══════════ BUTTONS ══════════ */
+.btn-primary{
+  padding:.85rem 1.75rem;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border:none;border-radius:12px;color:#000;
+  font-weight:700;cursor:pointer;font-size:.9rem;font-family:'Syne';
+  box-shadow:0 4px 20px rgba(232,160,32,0.3);transition:all .3s;
+}
+.btn-primary:hover{box-shadow:0 8px 30px rgba(232,160,32,0.45);transform:translateY(-2px)}
+
+/* ══════════ MODALS ══════════ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.8);
+  backdrop-filter:blur(16px);z-index:500;
+  display:none;align-items:center;justify-content:center;padding:1.5rem;
+}
+.modal-overlay.open{display:flex;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.modal{
+  background:var(--bg2);border:1px solid rgba(255,255,255,0.1);
+  border-radius:26px;width:100%;max-width:640px;
+  max-height:92vh;display:flex;flex-direction:column;
+  box-shadow:0 40px 100px rgba(0,0,0,0.6);
+  animation:modalIn .3s cubic-bezier(0.23,1,0.32,1);
+  position:relative;overflow:hidden;
+}
+.modal::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,160,32,0.4),transparent);
+}
+@keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+.modal-head{
+  padding:2rem 2.25rem 1.25rem;
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+}
+.modal-title{font-family:'Bebas Neue';font-size:2rem;letter-spacing:2px}
+.modal-close{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+  color:var(--muted2);font-size:1.2rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.modal-close:hover{background:rgba(255,59,92,0.1);border-color:rgba(255,59,92,0.3);color:var(--red)}
+
+.modal-body{padding:1.75rem 2.25rem 2rem;overflow-y:auto}
+.form-row{margin-bottom:1.25rem}
+.form-row label{
+  display:block;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted2);margin-bottom:.55rem;font-weight:600;
+}
+.form-row input,.form-row select,.form-row textarea{
+  width:100%;padding:.9rem 1.1rem;
+  background:rgba(255,255,255,0.04);border:1.5px solid rgba(255,255,255,0.08);
+  border-radius:11px;color:var(--text);font-size:.92rem;font-family:'Syne';
+  transition:border-color .3s;
+}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:rgba(232,160,32,0.4)}
+.form-row textarea{min-height:80px;resize:vertical}
+.form-row small{display:block;margin-top:.4rem;font-size:.75rem;color:var(--muted);font-family:'JetBrains Mono'}
+.form-row select{background:rgba(255,255,255,0.04) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='rgba(255,255,255,0.4)' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 1rem center;-webkit-appearance:none}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+
+.modal-foot{
+  padding:1.25rem 2.25rem 2rem;
+  display:flex;gap:.75rem;justify-content:flex-end;
+  border-top:1px solid rgba(255,255,255,0.06);
+}
+.btn-cancel{
+  padding:.85rem 1.5rem;background:transparent;
+  border:1.5px solid rgba(255,255,255,0.1);border-radius:11px;
+  color:var(--muted2);cursor:pointer;font-weight:600;font-family:'Syne';
+  transition:all .3s;
+}
+.btn-cancel:hover{border-color:rgba(255,255,255,0.2);color:var(--text)}
+
+/* DETAIL MODAL */
+.detail-modal{max-width:900px;width:96vw}
+.video-wrap{
+  position:relative;background:#000;border-radius:16px;
+  overflow:hidden;margin-bottom:1.5rem;
+  border:1px solid rgba(255,255,255,0.08);
+}
+video{width:100%;display:block;max-height:440px;object-fit:contain}
+.video-wm{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+}
+.video-wm-text{
+  font-family:'Bebas Neue';font-size:clamp(1.5rem,4vw,3rem);
+  letter-spacing:8px;color:rgba(255,255,255,0.12);transform:rotate(-25deg);
+  text-shadow:0 0 30px rgba(255,255,255,0.05);
+}
+
+.detail-chips{display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:1.5rem}
+.chip{
+  padding:.4rem 1rem;border-radius:10px;font-size:.8rem;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border);
+  color:var(--muted2);
+}
+
+.warn-box{
+  background:rgba(255,59,92,0.06);border:1px solid rgba(255,59,92,0.15);
+  border-radius:12px;padding:.85rem 1rem;margin-bottom:1.5rem;
+  font-size:.84rem;color:rgba(255,255,255,0.55);
+  display:flex;align-items:center;gap:.65rem;
+}
+
+.pay-section{
+  background:linear-gradient(135deg,rgba(232,160,32,0.08),rgba(224,64,160,0.04));
+  border:1px solid rgba(232,160,32,0.2);border-radius:18px;
+  padding:1.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+}
+.pay-amount-label{font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pay-amount{font-family:'JetBrains Mono';font-size:2.5rem;color:var(--gold2);font-weight:700}
+.btn-pay{
+  padding:1.1rem 2.5rem;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  border:none;border-radius:13px;color:#000;font-weight:800;cursor:pointer;
+  font-family:'Syne';font-size:1rem;
+  box-shadow:0 6px 30px rgba(232,160,32,0.4);transition:all .3s;
+}
+.btn-pay:hover{transform:translateY(-2px);box-shadow:0 10px 40px rgba(232,160,32,0.55)}
+.btn-mark-paid{
+  padding:1.1rem 2.5rem;
+  background:linear-gradient(135deg,#166534,var(--green));
+  border:none;border-radius:13px;color:#000;font-weight:800;cursor:pointer;
+  font-family:'Syne';font-size:1rem;transition:all .3s;
+}
+.btn-mark-paid:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,229,122,0.3)}
+
+/* PAY MODAL */
+.pay-modal{max-width:480px}
+.pay-info-box{
+  background:linear-gradient(135deg,rgba(232,160,32,0.1),rgba(224,64,160,0.06));
+  border:1px solid rgba(232,160,32,0.2);border-radius:16px;
+  padding:1.75rem;text-align:center;margin-bottom:1.75rem;
+}
+.pay-total{font-family:'JetBrains Mono';font-size:3rem;font-weight:700;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.pay-total-label{font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:.25rem}
+.pay-methods-label{font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;margin-bottom:1rem}
+
+.pay-methods{display:flex;flex-direction:column;gap:.65rem}
+.pay-method-btn{
+  width:100%;padding:1.1rem 1.25rem;
+  border:1.5px solid rgba(255,255,255,0.08);border-radius:14px;
+  background:rgba(255,255,255,0.02);
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;gap:1rem;
+  font-weight:600;font-family:'Syne';
+  transition:all .3s;
+}
+.pay-method-btn:hover{border-color:rgba(232,160,32,0.4);background:rgba(232,160,32,0.05);transform:translateX(4px)}
+.pay-method-icon{
+  width:44px;height:44px;border-radius:11px;
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;
+}
+.pay-method-icon.upi{background:rgba(0,229,220,0.12);border:1px solid rgba(0,229,220,0.2)}
+.pay-method-icon.card{background:rgba(232,160,32,0.12);border:1px solid rgba(232,160,32,0.2)}
+.pay-method-icon.bank{background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.2)}
+.pay-method-name{font-weight:700;margin-bottom:.1rem}
+.pay-method-sub{font-size:.75rem;color:var(--muted);font-weight:400}
+.pay-secure{text-align:center;margin-top:1.25rem;font-size:.75rem;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:.4rem}
+
+/* SUCCESS */
+.success-wrap{text-align:center;padding:3rem}
+.success-ring{
+  width:90px;height:90px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(0,229,122,0.15),rgba(0,229,122,0.05));
+  border:2px solid rgba(0,229,122,0.3);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1.75rem;font-size:2.2rem;
+  animation:ringIn .5s cubic-bezier(0.23,1,0.32,1);
+}
+@keyframes ringIn{from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1}}
+.success-title{font-family:'Bebas Neue';font-size:2.8rem;letter-spacing:3px;margin-bottom:.5rem}
+.success-sub{color:var(--muted);font-size:.92rem;margin-bottom:2rem}
+.btn-dl{
+  display:inline-flex;align-items:center;gap:.6rem;
+  padding:1.1rem 2.2rem;
+  background:linear-gradient(135deg,#166534,var(--green));
+  border:none;border-radius:14px;color:#000;font-weight:700;cursor:pointer;
+  font-family:'Syne';font-size:.95rem;
+}
+
+/* PAID DOWNLOAD */
+.dl-wrap{text-align:center;padding:2rem}
+
+/* SPINNER */
+.spin-wrap{text-align:center;padding:3rem}
+.spinner{
+  width:56px;height:56px;margin:0 auto 1.5rem;
+  border:3px solid rgba(232,160,32,0.15);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-text{color:var(--muted);font-size:.9rem}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:24px;right:24px;
+  padding:.9rem 1.4rem;border-radius:14px;color:#fff;
+  font-weight:600;z-index:99999;
+  display:flex;align-items:center;gap:.65rem;
+  max-width:380px;font-size:.88rem;
+  animation:toastIn .35s cubic-bezier(0.23,1,0.32,1);
+  border:1px solid;backdrop-filter:blur(20px);
+}
+.toast.success{background:rgba(0,229,122,0.12);border-color:rgba(0,229,122,0.25);box-shadow:0 8px 30px rgba(0,229,122,0.1)}
+.toast.error{background:rgba(255,59,92,0.12);border-color:rgba(255,59,92,0.25);box-shadow:0 8px 30px rgba(255,59,92,0.1)}
+.toast-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.toast.success .toast-dot{background:var(--green)}
+.toast.error .toast-dot{background:var(--red)}
+@keyframes toastIn{from{transform:translateX(100%) scale(0.9);opacity:0}to{transform:translateX(0) scale(1);opacity:1}}
+@keyframes toastOut{to{transform:translateX(120%) scale(0.9);opacity:0}}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .container{padding:1.25rem}
+  .projects-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .pay-section{flex-direction:column;text-align:center}
+  .app-nav{padding:0 1.25rem}
+  .home-nav{padding:1rem 1.25rem}
+  .hero-stats{gap:2rem}
+  .form-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ═══ LOADING ═══ -->
+<div id="loading-screen">
+  <div class="loader-inner">
+    <span class="loader-logo">CUTSTUDIO</span>
+    <div class="loader-tag">Production Portal v3.0</div>
+    <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+    <div class="loader-dots"><span></span><span></span><span></span></div>
+  </div>
+</div>
+
+<!-- ═══ HOME ═══ -->
+<div id="home-page">
+  <nav class="home-nav">
+    <div class="home-nav-brand">CUTSTUDIO PRO</div>
+    <button class="btn-launch" onclick="showLogin()">Launch Portal →</button>
+  </nav>
+
+  <section class="hero">
+    <div style="position:relative;z-index:1;max-width:920px;margin:0 auto">
+      <div class="hero-badge">🎬 Professional Video Editing Portal</div>
+      <h1 class="hero-title">
+        <span class="line1">CUTSTUDIO</span>
+        <span class="line2">PRO</span>
+      </h1>
+      <p class="hero-sub">Real-time database sync, secure payments, and cloud storage — all in one elegant portal.</p>
+      <div class="hero-cta">
+        <button class="btn-cta-primary" onclick="showLogin()">🚀 Launch Portal</button>
+        <button class="btn-cta-sec">Watch Demo ↗</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hstat"><div class="hstat-num">100%</div><div class="hstat-label">Cloud Sync</div></div>
+        <div class="hstat"><div class="hstat-num">UPI</div><div class="hstat-label">Razorpay</div></div>
+        <div class="hstat"><div class="hstat-num">∞</div><div class="hstat-label">Storage</div></div>
+        <div class="hstat"><div class="hstat-num">Live</div><div class="hstat-label">Real-time</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="sec-eyebrow">Why Choose Us</div>
+    <h2 class="sec-title">BUILT FOR PROFESSIONALS</h2>
+    <div class="features-grid">
+      <div class="feat-card">
+        <div class="feat-icon-box">☁️</div>
+        <div class="feat-title">REAL DATABASE</div>
+        <p class="feat-desc">Firebase Firestore saves data permanently. Auto-backup, zero maintenance, enterprise-grade reliability.</p>
+        <span class="feat-tag">Firebase Firestore</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-box">💳</div>
+        <div class="feat-title">LIVE PAYMENTS</div>
+        <p class="feat-desc">Razorpay integration for UPI, Cards, Net Banking. Verified and encrypted transactions every time.</p>
+        <span class="feat-tag">Razorpay Secured</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-box">🎬</div>
+        <div class="feat-title">LARGE VIDEOS</div>
+        <p class="feat-desc">Store gigabytes of final renders on Firebase Storage or Google Drive. Stream globally via CDN.</p>
+        <span class="feat-tag">Cloud Storage</span>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon-box">⚡</div>
+        <div class="feat-title">REAL-TIME SYNC</div>
+        <p class="feat-desc">Admin updates project status and the client sees it instantly across all devices — no refresh needed.</p>
+        <span class="feat-tag">Live Updates</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-brand">CUTSTUDIO PRO</div>
+    <p class="footer-copy">Powered by Firebase + Razorpay • Free Forever</p>
+  </footer>
+</div>
+
+<!-- ═══ LOGIN ═══ -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-logo">CUTSTUDIO</div>
+      <div class="login-ver">PRODUCTION PORTAL v3.0</div>
+    </div>
+    <div class="login-card">
+      <div class="lfield"><label>Email Address</label><input type="email" id="login-email" placeholder="admin@cutstudio.com"></div>
+      <div class="lfield"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+      <div class="err-msg" id="login-err"></div>
+      <button class="btn-login" onclick="doLogin()">Sign In →</button>
+
+      <div class="divider"><span>Quick Access</span></div>
+
+      <div class="quick-btns">
+        <button class="quick-btn" onclick="quickLogin('admin@cutstudio.com','admin123')">
+          <div class="quick-btn-icon admin">👨‍💼</div>
+          <div><div>Admin User</div><div class="quick-btn-sub">Full dashboard access</div></div>
+        </button>
+        <button class="quick-btn" onclick="quickLogin('client@test.com','client123')">
+          <div class="quick-btn-icon client">👤</div>
+          <div><div>Demo Client</div><div class="quick-btn-sub">View & pay projects</div></div>
+        </button>
+      </div>
+
+      <div class="mode-row" style="margin-top:1.5rem">
+        <label><label class="toggle"><input type="checkbox" id="mode-toggle" onchange="toggleConfigPanel()"><span class="toggle-slider"></span></label><span style="margin-left:.6rem;font-size:.87rem">🔥 Production Mode</span></label>
+        <span style="font-size:.75rem;color:var(--muted)">Firebase + Razorpay</span>
+      </div>
+
+      <div class="config-panel" id="config-panel">
+        <label class="cfg-label">Firebase API Key</label><input class="cfg-input" type="text" id="cfg-apikey" placeholder="AIzaSy...">
+        <label class="cfg-label">Project ID</label><input class="cfg-input" type="text" id="cfg-projectid" placeholder="cutstudio-pro">
+        <label class="cfg-label">Razorpay Key ID</label><input class="cfg-input" type="text" id="cfg-razorpay" placeholder="rzp_test_...">
+        <p style="font-size:.72rem;color:var(--muted);margin-top:.25rem">Leave empty to use Demo Mode</p>
+      </div>
+
+      <span class="back-home" onclick="showHome()">← Back to Home</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app" class="app">
+  <nav class="app-nav">
+    <div class="app-brand" onclick="doLogout();showHome()">CUTSTUDIO PRO</div>
+    <div class="nav-right">
+      <div class="nav-user-pill">
+        <div class="nav-avatar" id="nav-avatar">?</div>
+        <span class="nav-name" id="nav-name"></span>
+      </div>
+      <button class="btn-signout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- CLIENT -->
+    <div id="client-view" class="page">
+      <div class="page-head">
+        <div>
+          <div class="page-head-title">YOUR PROJECTS</div>
+          <div class="page-head-sub">Real-time sync from cloud database</div>
+        </div>
+      </div>
+      <div id="client-grid" class="projects-grid"></div>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="admin-view" class="page">
+      <div class="tabs-wrap">
+        <button class="tab active" onclick="switchTab('projects',event)">📁 Projects</button>
+        <button class="tab" onclick="switchTab('clients',event)">👥 Clients</button>
+      </div>
+
+      <div id="tab-projects">
+        <div class="page-head">
+          <div>
+            <div class="page-head-title">ALL PROJECTS</div>
+            <div class="page-head-sub">Permanently saved in cloud</div>
+          </div>
+          <button class="btn-primary" onclick="openModal('add-project-modal')">+ New Project</button>
+        </div>
+        <div class="stats-row" id="admin-stats"></div>
+        <div id="admin-grid" class="projects-grid"></div>
+      </div>
+
+      <div id="tab-clients" style="display:none">
+        <div class="page-head">
+          <div>
+            <div class="page-head-title">CLIENTS</div>
+            <div class="page-head-sub">Stored in cloud database</div>
+          </div>
+          <button class="btn-primary" onclick="openModal('add-client-modal')">Add Client</button>
+        </div>
+        <div class="table-wrap"><table class="clients-table" id="clients-table"></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ADD PROJECT ═══ -->
+<div class="modal-overlay" id="add-project-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">NEW PROJECT</div>
+      <button class="modal-close" onclick="closeModal('add-project-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row"><label>Project Title</label><input type="text" id="f-title" placeholder="Wedding Highlights Reel"></div>
+      <div class="form-row"><label>Client Email</label><input type="email" id="f-client" placeholder="client@email.com"></div>
+      <div class="form-grid">
+        <div class="form-row"><label>Price (₹)</label><input type="number" id="f-price" placeholder="8500"></div>
+        <div class="form-row"><label>Duration</label><input type="text" id="f-duration" placeholder="7 mins"></div>
+      </div>
+      <div class="form-row"><label>Preview URL</label><input type="url" id="f-preview" placeholder="https://..."><small>Watermarked version for client preview</small></div>
+      <div class="form-row"><label>Final HD URL</label><input type="url" id="f-finalUrl" placeholder="https://..."><small>Unlocked after payment</small></div>
+      <div class="form-row"><label>Description</label><textarea id="f-desc" placeholder="Notes about this project..."></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('add-project-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: ADD CLIENT ═══ -->
+<div class="modal-overlay" id="add-client-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">ADD CLIENT</div>
+      <button class="modal-close" onclick="closeModal('add-client-modal')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row"><label>Full Name</label><input type="text" id="c-name" placeholder="Rahul Sharma"></div>
+      <div class="form-row"><label>Email Address</label><input type="email" id="c-email" placeholder="rahul@example.com"></div>
+      <div class="form-row"><label>Password</label><input type="text" id="c-pass" placeholder="Set a password"></div>
+      <div class="form-row"><label>Phone (Optional)</label><input type="tel" id="c-phone" placeholder="+91 98765 43210"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-cancel" onclick="closeModal('add-client-modal')">Cancel</button>
+      <button class="btn-primary" onclick="saveClient()">Add Client</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: DETAIL ═══ -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal detail-modal">
+    <div class="modal-head">
+      <div class="modal-title" id="detail-title">PROJECT</div>
+      <button class="modal-close" onclick="closeModal('detail-modal')">×</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: PAYMENT ═══ -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal pay-modal">
+    <div class="modal-head">
+      <div class="modal-title">PAYMENT</div>
+      <button class="modal-close" onclick="closeModal('pay-modal')">×</button>
+    </div>
+    <div class="modal-body" id="pay-body"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// DATA & STATE
+// ════════════════════════════════════════════
+let db=null,auth=null,currentUser=null,isProductionMode=false;
+
+const THUMB_CLASSES=['thumb-bg-1','thumb-bg-2','thumb-bg-3','thumb-bg-4'];
+
+const DEMO_DATA={
+  users:[
+    {uid:'admin1',email:'admin@cutstudio.com',password:'admin123',name:'Admin',role:'admin'},
+    {uid:'client1',email:'client@test.com',password:'client123',name:'Demo Client',role:'client'}
+  ],
+  projects:[
+    {id:'p1',title:'Wedding Highlights Reel',clientEmail:'client@test.com',price:8500,duration:'7 mins',status:'preview',previewUrl:'https://www.w3schools.com/html/mov_bbb.mp4',finalUrl:'https://www.w3schools.com/html/movie.mp4',desc:'Full ceremony & reception edit'},
+    {id:'p2',title:'Product Launch Video',clientEmail:'client@test.com',price:12000,duration:'3 mins',status:'paid',previewUrl:'https://www.w3schools.com/html/mov_bbb.mp4',finalUrl:'https://www.w3schools.com/html/movie.mp4',desc:'Corporate promo — 4K master'}
+  ]
+};
+
+function loadDemoData(){
+  const u=localStorage.getItem('csdemo_users'),p=localStorage.getItem('csdemo_projects');
+  if(u) DEMO_DATA.users=JSON.parse(u);
+  if(p) DEMO_DATA.projects=JSON.parse(p);
+}
+function saveDemoData(){
+  localStorage.setItem('csdemo_users',JSON.stringify(DEMO_DATA.users));
+  localStorage.setItem('csdemo_projects',JSON.stringify(DEMO_DATA.projects));
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded',()=>{
+  loadDemoData();
+  setTimeout(()=>{
+    const loader=document.getElementById('loading-screen');
+    loader.classList.add('hidden');
+    setTimeout(()=>{loader.style.display='none'},600);
+    document.getElementById('home-page').style.display='block';
+  },2200);
+});
+
+// ════════════════════════════════════════════
+// NAV
+// ════════════════════════════════════════════
+function showHome(){
+  document.getElementById('home-page').style.display='block';
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.remove('visible');
+  window.scrollTo(0,0);
+}
+function showLogin(){
+  document.getElementById('home-page').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-err').style.display='none';
+  window.scrollTo(0,0);
+}
+function toggleConfigPanel(){
+  isProductionMode=document.getElementById('mode-toggle').checked;
+  document.getElementById('config-panel').classList.toggle('active',isProductionMode);
+  showToast(isProductionMode?'🔥 Production Mode ON':'🧪 Demo Mode ON','success');
+}
+
+// ════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════
+function quickLogin(e,p){
+  document.getElementById('login-email').value=e;
+  document.getElementById('login-pass').value=p;
+  doLogin();
+}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value.trim().toLowerCase();
+  const pass=document.getElementById('login-pass').value;
+  const errDiv=document.getElementById('login-err');
+
+  if(!email||!pass){errDiv.textContent='Please enter email & password';errDiv.style.display='block';return}
+
+  if(isProductionMode&&document.getElementById('cfg-apikey').value){
+    await initFirebaseLogin(email,pass);return;
+  }
+
+  const user=DEMO_DATA.users.find(u=>u.email===email&&u.password===pass);
+  if(!user){
+    errDiv.innerHTML='Invalid credentials!<br><small style="color:rgba(255,255,255,0.4)">Try: admin@cutstudio.com / admin123</small>';
+    errDiv.style.display='block';return;
+  }
+  currentUser=user;
+  document.getElementById('login-screen').style.display='none';
+  launchApp();
+}
+
+async function initFirebaseLogin(email,pass){
+  try{
+    if(!firebase.apps.length) firebase.initializeApp({
+      apiKey:document.getElementById('cfg-apikey').value.trim(),
+      projectId:document.getElementById('cfg-projectid').value.trim()
+    });
+    auth=firebase.auth();db=firebase.firestore();
+    const snap=await db.collection('users').where('email','==',email).get();
+    if(snap.empty){showToast('User not found in Firebase','error');return;}
+    currentUser={uid:snap.docs[0].id,...snap.docs[0].data()};
+    document.getElementById('login-screen').style.display='none';
+    launchApp();showToast('✅ Connected to Firebase!','success');
+  }catch(e){showToast('Firebase Error: '+e.message,'error')}
+}
+
+function doLogout(){
+  currentUser=null;
+  document.getElementById('app').classList.remove('visible');
+  showHome();
+}
+
+function launchApp(){
+  document.getElementById('home-page').style.display='none';
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').classList.add('visible');
+  const initials=(currentUser.name||currentUser.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('nav-avatar').textContent=initials;
+  document.getElementById('nav-name').textContent=currentUser.name||currentUser.email;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  if(currentUser.role==='admin'){
+    document.getElementById('admin-view').classList.add('active');
+    loadAdminData();
+  }else{
+    document.getElementById('client-view').classList.add('active');
+    loadClientProjects();
+  }
+  showToast(`Welcome back, ${(currentUser.name||currentUser.email).split(' ')[0]}! 👋`,'success');
+}
+
+// ════════════════════════════════════════════
+// DATA RENDER
+// ════════════════════════════════════════════
+function loadAdminData(){renderAdminStats();renderAdminProjects();renderClientsTable()}
+function loadClientProjects(){renderProjectGrid('client-grid',DEMO_DATA.projects.filter(p=>p.clientEmail===currentUser.email))}
+
+function renderAdminStats(){
+  const p=DEMO_DATA.projects;
+  const u=DEMO_DATA.users.filter(x=>x.role==='client');
+  const paid=p.filter(x=>x.status==='paid');
+  const rev=paid.reduce((s,x)=>s+(x.price||0),0);
+  document.getElementById('admin-stats').innerHTML=`
+    <div class="stat-card s-white"><span class="stat-icon">📁</span><div class="stat-label">Total Projects</div><div class="stat-val">${p.length}</div></div>
+    <div class="stat-card s-cyan"><span class="stat-icon">👥</span><div class="stat-label">Clients</div><div class="stat-val cyan">${u.length}</div></div>
+    <div class="stat-card s-green"><span class="stat-icon">✅</span><div class="stat-label">Paid</div><div class="stat-val green">${paid.length}</div></div>
+    <div class="stat-card s-gold"><span class="stat-icon">₹</span><div class="stat-label">Revenue</div><div class="stat-val gold">₹${rev.toLocaleString()}</div></div>
+    <div class="stat-card s-magenta"><span class="stat-icon">⏳</span><div class="stat-label">Pending</div><div class="stat-val magenta">${p.filter(x=>x.status!=='paid').length}</div></div>`;
+}
+
+function renderAdminProjects(){renderProjectGrid('admin-grid',DEMO_DATA.projects)}
+
+function renderProjectGrid(gridId,projects){
+  const grid=document.getElementById(gridId);
+  if(!projects.length){
+    grid.innerHTML=`<div class="empty-state"><div class="empty-icon-wrap">🎬</div><div class="empty-title">NO PROJECTS YET</div><div class="empty-sub">Click "+ New Project" to get started</div></div>`;
+    return;
+  }
+  grid.innerHTML=projects.map((p,i)=>{
+    const thumbClass=THUMB_CLASSES[i%THUMB_CLASSES.length];
+    const isPaid=p.status==='paid';
+    return `<div class="project-card">
+      <div class="card-thumb">
+        <div class="thumb-bg ${thumbClass}"></div>
+        <div class="thumb-pattern"></div>
+        <div class="thumb-content">
+          <div class="thumb-play">${isPaid?'↓':'▶'}</div>
+          ${p.duration?`<div class="thumb-dur">⏱ ${p.duration}</div>`:''}
+        </div>
+        <div class="thumb-overlay">
+          <span class="status-pill ${isPaid?'pill-paid':'pill-preview'}">${isPaid?'✓ Paid':'● Preview'}</span>
+          <span class="thumb-client">${p.clientEmail.split('@')[0]}</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${p.title}</div>
+        ${p.desc?`<div class="card-desc">${p.desc}</div>`:''}
+        <div class="card-divider"></div>
+        <div class="card-price-row">
+          <span class="card-price-label">Amount</span>
+          <span class="card-price">₹${(p.price||0).toLocaleString()}</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn-card-primary" onclick="openDetail('${p.id}')">${isPaid?'↓ Download HD':'▶ Preview & Pay'}</button>
+          ${currentUser.role==='admin'?`<button class="btn-card-danger" onclick="deleteProject('${p.id}')">Delete</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderClientsTable(){
+  const u=DEMO_DATA.users.filter(x=>x.role==='client');
+  const p=DEMO_DATA.projects;
+  document.getElementById('clients-table').innerHTML=`
+    <thead><tr>
+      <th></th><th>Client</th><th>Projects</th><th>Paid</th><th>Status</th><th>Action</th>
+    </tr></thead>
+    <tbody>${u.map(u=>{
+      const total=p.filter(x=>x.clientEmail===u.email).length;
+      const pd=p.filter(x=>x.clientEmail===u.email&&x.status==='paid').length;
+      const init=(u.name||u.email).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      return `<tr>
+        <td><div class="td-avatar">${init}</div></td>
+        <td><div class="td-name">${u.name||u.email}</div><div class="td-email">${u.email}</div></td>
+        <td><span style="font-family:'JetBrains Mono';font-weight:600">${total}</span></td>
+        <td><span style="font-family:'JetBrains Mono';font-weight:600;color:var(--green)">${pd}</span></td>
+        <td><span class="td-badge">Active</span></td>
+        <td><button class="btn-card-danger" onclick="deleteClient('${u.uid}')">Remove</button></td>
+      </tr>`;
+    }).join('')||'<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--muted)">No clients yet</td></tr>'}
+    </tbody>`;
+}
+
+function switchTab(tab,e){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('tab-projects').style.display=tab==='projects'?'block':'none';
+  document.getElementById('tab-clients').style.display=tab==='clients'?'block':'none';
+}
+
+// ════════════════════════════════════════════
+// DETAIL & PAYMENT
+// ════════════════════════════════════════════
+function openDetail(id){
+  const p=DEMO_DATA.projects.find(x=>x.id===id);if(!p)return;
+  document.getElementById('detail-title').textContent=p.title;
+  const body=document.getElementById('detail-body');
+
+  if(p.status==='paid'){
+    body.innerHTML=`
+      <div class="dl-wrap">
+        <div class="success-ring">✅</div>
+        <div class="success-title">PAYMENT COMPLETE</div>
+        <div class="success-sub">Your final HD video is ready to download</div>
+        <a href="${p.finalUrl}" target="_blank" style="text-decoration:none">
+          <button class="btn-dl">↓ Download Final HD Video</button>
+        </a>
+      </div>`;
+  } else {
+    body.innerHTML=`
+      <div class="video-wrap">
+        <video controls preload="metadata"><source src="${p.previewUrl}" type="video/mp4"></video>
+        <div class="video-wm"><span class="video-wm-text">PREVIEW ONLY</span></div>
+      </div>
+      <div class="detail-chips">
+        ${p.duration?`<span class="chip">⏱ ${p.duration}</span>`:''}
+        ${p.desc?`<span class="chip">${p.desc}</span>`:''}
+        <span class="chip">🔒 Watermarked</span>
+      </div>
+      <div class="warn-box">⚠️ <span>This is a watermarked preview. Final HD version unlocks after payment.</span></div>
+      <div class="pay-section">
+        <div>
+          <div class="pay-amount-label">Project Amount</div>
+          <div class="pay-amount">₹${(p.price||0).toLocaleString()}</div>
+        </div>
+        ${currentUser.role!=='admin'
+          ?`<button class="btn-pay" onclick="initiatePayment('${p.id}',${p.price||0})">💳 Pay Now</button>`
+          :`<button class="btn-mark-paid" onclick="markPaid('${p.id}');closeModal('detail-modal')">✓ Mark as Paid</button>`}
+      </div>`;
+  }
+  openModal('detail-modal');
+}
+
+function initiatePayment(pid,amt){
+  closeModal('detail-modal');
+  document.getElementById('pay-body').innerHTML=`
+    <div class="pay-info-box">
+      <div class="pay-total-label">Total Amount</div>
+      <div class="pay-total">₹${amt.toLocaleString()}</div>
+    </div>
+    <div class="pay-methods-label">Choose Payment Method</div>
+    <div class="pay-methods">
+      <button class="pay-method-btn" onclick="processPay('${pid}',${amt},'upi')">
+        <div class="pay-method-icon upi">🔷</div>
+        <div><div class="pay-method-name">UPI</div><div class="pay-method-sub">GPay · PhonePe · Paytm</div></div>
+      </button>
+      <button class="pay-method-btn" onclick="processPay('${pid}',${amt},'card')">
+        <div class="pay-method-icon card">💳</div>
+        <div><div class="pay-method-name">Credit / Debit Card</div><div class="pay-method-sub">Visa · Mastercard · RuPay</div></div>
+      </button>
+      <button class="pay-method-btn" onclick="processPay('${pid}',${amt},'netbanking')">
+        <div class="pay-method-icon bank">🏦</div>
+        <div><div class="pay-method-name">Net Banking</div><div class="pay-method-sub">All major banks supported</div></div>
+      </button>
+    </div>
+    <div class="pay-secure">🔒 Secured by Razorpay • 256-bit SSL Encrypted</div>`;
+  openModal('pay-modal');
+}
+
+function processPay(pid,amt,method){
+  const body=document.getElementById('pay-body');
+  body.innerHTML=`<div class="spin-wrap"><div class="spinner"></div><div class="spin-text">Processing ${method.toUpperCase()}...</div></div>`;
+
+  const razorpayKey=document.getElementById('cfg-razorpay').value.trim();
+
+  if(razorpayKey&&isProductionMode){
+    try{
+      new Razorpay({
+        key:razorpayKey,amount:amt*100,currency:'INR',
+        name:'CutStudio Pro',description:`Project #${pid}`,
+        handler:function(r){
+          markPaid(pid);
+          body.innerHTML=`<div class="success-wrap"><div class="success-ring">✓</div><div class="success-title">PAYMENT SUCCESS!</div><div class="success-sub">ID: ${r.razorpay_payment_id}</div><button class="btn-dl" onclick="closeModal('pay-modal');openDetail('${pid}')">↓ Download Video</button></div>`;
+          showToast('Payment successful! ✓','success');
+        },
+        prefill:{name:currentUser.name,email:currentUser.email},
+        theme:{color:'#e8a020'}
+      }).open();
+      closeModal('pay-modal');
+    }catch(e){simulatePay(pid,body);}
+  }else{
+    setTimeout(()=>{
+      markPaid(pid);
+      body.innerHTML=`<div class="success-wrap"><div class="success-ring">✓</div><div class="success-title">PAYMENT SUCCESS!</div><div class="success-sub">(Demo simulation complete)</div><button class="btn-dl" onclick="closeModal('pay-modal');openDetail('${pid}')">↓ View Project</button></div>`;
+      showToast('Demo payment processed! ✓','success');
+    },2200);
+  }
+}
+
+function simulatePay(pid,body){
+  markPaid(pid);
+  body.innerHTML=`<div class="success-wrap"><div class="success-ring">✓</div><div class="success-title">SUCCESS!</div><div class="success-sub">Demo complete</div><button class="btn-dl" onclick="closeModal('pay-modal');openDetail('${pid}')">↓ View Project</button></div>`;
+}
+
+async function markPaid(id){
+  const p=DEMO_DATA.projects.find(x=>x.id===id);
+  if(p){p.status='paid';p.paidAt=new Date().toISOString();saveDemoData();}
+  if(currentUser.role==='admin')loadAdminData();else loadClientProjects();
+  showToast('Status updated: PAID ✓','success');
+}
+
+// ════════════════════════════════════════════
+// MODALS
+// ════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  const v=document.querySelector('#detail-body video');if(v)v.pause();
+}
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id)})
+});
+
+// ════════════════════════════════════════════
+// CRUD
+// ════════════════════════════════════════════
+async function saveProject(){
+  const d={
+    id:'p'+Date.now(),
+    title:document.getElementById('f-title').value.trim(),
+    clientEmail:document.getElementById('f-client').value.trim().toLowerCase(),
+    price:parseInt(document.getElementById('f-price').value)||0,
+    duration:document.getElementById('f-duration').value.trim(),
+    previewUrl:document.getElementById('f-preview').value.trim(),
+    finalUrl:document.getElementById('f-finalUrl').value.trim(),
+    desc:document.getElementById('f-desc').value.trim(),
+    status:'preview',
+    createdAt:new Date().toISOString()
+  };
+  if(!d.title||!d.clientEmail||!d.price){showToast('Fill in: Title, Email, Price','error');return;}
+  if(isProductionMode&&db){await db.collection('projects').add(d);showToast('Saved to Firebase!','success');}
+  else{DEMO_DATA.projects.push(d);saveDemoData();showToast('Project created! (Demo)','success');}
+  closeModal('add-project-modal');loadAdminData();
+}
+
+async function deleteProject(id){
+  if(!confirm('Delete this project?'))return;
+  if(isProductionMode&&db)await db.collection('projects').doc(id).delete();
+  else DEMO_DATA.projects=DEMO_DATA.projects.filter(p=>p.id!==id);
+  saveDemoData();loadAdminData();showToast('Project deleted','success');
+}
+
+async function saveClient(){
+  const d={
+    uid:'u'+Date.now(),
+    name:document.getElementById('c-name').value.trim(),
+    email:document.getElementById('c-email').value.trim().toLowerCase(),
+    phone:document.getElementById('c-phone').value.trim(),
+    role:'client'
+  };
+  const pass=document.getElementById('c-pass').value.trim();
+  if(!d.name||!d.email||!pass){showToast('Name, email & password required','error');return;}
+  if(DEMO_DATA.users.find(u=>u.email===d.email)){showToast('Email already exists!','error');return;}
+  d.password=pass;
+  if(isProductionMode&&db){await db.collection('users').add(d);showToast('Added to Firebase!','success');}
+  else{DEMO_DATA.users.push(d);saveDemoData();showToast('Client created! (Demo)','success');}
+  closeModal('add-client-modal');renderClientsTable();renderAdminStats();
+}
+
+async function deleteClient(uid){
+  if(!confirm('Remove this client?'))return;
+  if(isProductionMode&&db)await db.collection('users').doc(uid).delete();
+  else DEMO_DATA.users=DEMO_DATA.users.filter(u=>u.uid!==uid);
+  saveDemoData();renderClientsTable();renderAdminStats();showToast('Client removed','success');
+}
+
+// ════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════
+function showToast(msg,type='success'){
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<div class="toast-dot"></div><span>${msg}</span>`;
+  document.body.appendChild(t);
+  setTimeout(()=>{
+    t.style.animation='toastOut .35s cubic-bezier(0.23,1,0.32,1) forwards';
+    setTimeout(()=>t.remove(),350);
+  },3200);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('login-screen').style.display!=='none')doLogin();
+  if(e.key==='Escape'){document.querySelectorAll('.modal-overlay.open').forEach(m=>closeModal(m.id))}
+});
+</script>
+</body>
+</html>

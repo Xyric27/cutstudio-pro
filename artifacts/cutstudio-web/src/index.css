@@ -1,0 +1,195 @@
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap");
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --font-sans: var(--font-syne);
+  --font-display: var(--font-bebas);
+  --font-mono: var(--font-jetbrains);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root, .dark {
+  --background: 240 45% 4%; /* #05050d */
+  --foreground: 0 0% 100%;
+  
+  --card: 240 38% 6%; /* #0a0a16 */
+  --card-foreground: 0 0% 100%;
+  
+  --popover: 240 36% 9%; /* #0f0f20 */
+  --popover-foreground: 0 0% 100%;
+  
+  --primary: 38 85% 52%; /* #e8a020 */
+  --primary-foreground: 240 45% 4%;
+  
+  --secondary: 240 36% 9%; /* #0f0f20 */
+  --secondary-foreground: 0 0% 100%;
+  
+  --muted: 240 36% 9%; /* #0f0f20 */
+  --muted-foreground: 240 5% 65%;
+  
+  --accent: 177 100% 45%; /* #00e5dc */
+  --accent-foreground: 240 45% 4%;
+  
+  --destructive: 350 100% 62%; /* #ff3b5c */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 240 20% 15%;
+  --input: 240 20% 15%;
+  --ring: 38 85% 52%;
+  
+  --radius: 0.5rem;
+
+  --font-syne: 'Syne', sans-serif;
+  --font-bebas: 'Bebas Neue', sans-serif;
+  --font-jetbrains: 'JetBrains Mono', monospace;
+  
+  --bg: #05050d;
+  --bg2: #0a0a16;
+  --bg3: #0f0f20;
+  --gold: #e8a020;
+  --gold2: #f5c060;
+  --gold3: #ffd980;
+  --cyan: #00e5dc;
+  --magenta: #e040a0;
+  --red: #ff3b5c;
+  --green: #00e57a;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground overflow-x-hidden;
+    background-color: var(--bg);
+  }
+}
+
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: -1;
+  opacity: 0.4;
+  animation: float 20s infinite ease-in-out alternate;
+}
+
+.orb-1 {
+  width: 400px;
+  height: 400px;
+  background: var(--gold);
+  top: -100px;
+  right: -100px;
+  animation-delay: 0s;
+}
+
+.orb-2 {
+  width: 500px;
+  height: 500px;
+  background: var(--cyan);
+  bottom: -200px;
+  left: -200px;
+  animation-delay: -5s;
+}
+
+.orb-3 {
+  width: 350px;
+  height: 350px;
+  background: var(--magenta);
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation-delay: -10s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+.text-gradient {
+  background: linear-gradient(to right, var(--gold), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(to right, var(--gold), var(--gold2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 40px -10px rgba(232, 160, 32, 0.15);
+  border-color: rgba(232, 160, 32, 0.3);
+}
+
+.thumbnail-gradient {
+  background: linear-gradient(135deg, var(--bg3) 0%, var(--bg) 100%);
+  position: relative;
+}
+
+.thumbnail-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.1;
+  pointer-events: none;
+}
