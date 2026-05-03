@@ -1,36 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { Play, ChevronRight, Zap, Shield, LayoutDashboard, Users, BarChart3, CheckCircle, Star, ArrowUpRight, Video, IndianRupee, Clock, TrendingUp } from "lucide-react";
-
-function useCountUp(target: number, duration = 1800, start = false) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!start) return;
-    let startTime: number;
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(ease * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration, start]);
-  return count;
-}
-
-function StatCard({ value, suffix, label, color, started }: { value: number; suffix: string; label: string; color: string; started: boolean }) {
-  const count = useCountUp(value, 1600, started);
-  return (
-    <div className="stat-counter-card rounded-2xl p-6 text-center">
-      <div className={`font-mono text-4xl md:text-5xl font-bold mb-2`} style={{ color }}>
-        {count.toLocaleString("en-IN")}{suffix}
-      </div>
-      <div className="text-[#808090] text-xs uppercase tracking-widest font-semibold">{label}</div>
-    </div>
-  );
-}
+import { Play, ChevronRight, Zap, Shield, LayoutDashboard, Users, BarChart3, CheckCircle, ArrowUpRight, Video, IndianRupee, Clock, TrendingUp } from "lucide-react";
 
 const FEATURES = [
   { icon: Video, title: "Client Video Portal", desc: "A branded, password-protected space for clients to view your edits in cinematic quality. No more Google Drive links.", tag: "Core", color: "#e8a020", delay: 0 },
@@ -48,24 +18,8 @@ const STEPS = [
   { num: "04", title: "Download final HD", desc: "Payment confirmed = file unlocked. Clean, professional, automatic.", icon: CheckCircle },
 ];
 
-const TESTIMONIALS = [
-  { name: "Rahul Verma", role: "Wedding Editor, Mumbai", rating: 5, text: "Ek baar try kiya aur bhai — no more WhatsApp pe 'bhai payment kab?'. Client khud portal pe jaata hai aur pay kar deta hai." },
-  { name: "Priya Singh", role: "Corporate Video Editor, Delhi", rating: 5, text: "My clients think I have a whole team. CutStudio Pro makes me look like a studio, not a freelancer." },
-  { name: "Arjun Mehta", role: "Reels Creator, Bangalore", rating: 5, text: "Revenue doubled in 3 months. Seriously. Clients pay faster when the portal looks this premium." },
-];
-
 export default function Home() {
-  const statsRef = useRef<HTMLDivElement>(null);
-  const [statsStarted, setStatsStarted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) setStatsStarted(true);
-    }, { threshold: 0.3 });
-    if (statsRef.current) observer.observe(statsRef.current);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
@@ -162,13 +116,7 @@ export default function Home() {
           {/* Hero glow line */}
           <div className="float-in float-in-4 hero-glow-line mb-12" />
 
-          {/* Stats */}
-          <div ref={statsRef} className="float-in float-in-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard value={2400} suffix="+" label="Active Editors" color="#e8a020" started={statsStarted} />
-            <StatCard value={12000} suffix="+" label="Projects Delivered" color="#f5c060" started={statsStarted} />
-            <StatCard value={98} suffix="%" label="Client Satisfaction" color="#00e5dc" started={statsStarted} />
-            <StatCard value={60} suffix="/min" label="Avg ₹ Rate" color="#e040a0" started={statsStarted} />
-          </div>
+
         </div>
 
         {/* Scroll indicator */}
@@ -276,41 +224,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── TESTIMONIALS ─── */}
-      <section className="py-28 relative">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#e040a0]/10 border border-[#e040a0]/20 text-[#e040a0] text-xs font-semibold uppercase tracking-widest mb-4">
-              Testimonials
-            </div>
-            <h2 className="font-display text-5xl md:text-6xl tracking-tight">
-              EDITORS WHO <span className="text-gradient">SWEAR BY IT</span>
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="testimonial-card rounded-2xl p-7">
-                <div className="flex gap-0.5 mb-4">
-                  {[...Array(t.rating)].map((_, j) => (
-                    <Star key={j} className="w-4 h-4 fill-[#e8a020] text-[#e8a020]" />
-                  ))}
-                </div>
-                <p className="text-[#a0a0b0] text-sm leading-relaxed mb-6 italic">"{t.text}"</p>
-                <div className="flex items-center gap-3 pt-4 border-t border-[#1f1f2e]">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#e8a020] to-[#e040a0] flex items-center justify-center text-black text-xs font-bold">
-                    {t.name[0]}
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-semibold">{t.name}</p>
-                    <p className="text-[#606070] text-xs">{t.role}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ─── CTA SECTION ─── */}
       <section className="py-28 relative overflow-hidden">
         <div className="cta-glow absolute inset-0 pointer-events-none" />
@@ -334,7 +247,7 @@ export default function Home() {
               </button>
             </Link>
           </div>
-          <p className="text-[#404050] text-xs mt-4 font-mono">No credit card required · Demo data pre-loaded · 2 min setup</p>
+
         </div>
       </section>
 
