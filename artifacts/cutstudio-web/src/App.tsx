@@ -2,11 +2,11 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/lib/store";
-import { SetupWizard } from "@/components/ui/SetupWizard"; // NEW: Import setup wizard
+import { SetupWizard } from "@/components/ui/SetupWizard"; // ✅ Your path: /ui/SetupWizard
 import NotFound from "@/pages/not-found";
 import LoadingScreen from "@/pages/loading";
 import Home from "@/pages/home";
-import Login from "@/pages/login"; // Your updated login (from previous message)
+import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 
 /**
@@ -30,31 +30,6 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 }
 
 /**
- * Public Route Component  
- * Redirects to dashboard if already logged in (optional)
- */
-function PublicRoute({ component: Component, ...rest }: any) {
-  const { currentUser, isLoading, firebaseReady, isSetupMode } = useApp();
-  
-  // Show loading while connecting
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
-  
-  // If in setup mode and trying to access login, show setup instead
-  if (isSetupMode && rest.path === "/login") {
-    return <Component {...rest} />; // Login.tsx handles setup mode UI internally
-  }
-  
-  // Already logged in → redirect to dashboard (optional - remove if you want users to access login when logged in)
-  if (currentUser && (rest.path === "/login" || rest.path === "/")) {
-    return <Redirect to="/dashboard" />;
-  }
-  
-  return <Component {...rest} />;
-}
-
-/**
  * Main Router Configuration
  */
 function Router() {
@@ -67,13 +42,21 @@ function Router() {
       {/* Home/Landing Page */}
       <Route path="/home" component={Home} />
       
-      {/* Login Page - handles setup mode internally */}
-      <Route path="/login" component={() => <PublicRoute component={Login} />} />
+      {/* Login Page - always accessible */}
+      <Route path="/login" component={Login} />
       
-      {/* NEW: Setup Wizard Route */}
-      {isSetupMode && (
-        <Route path="/setup" component={SetupWizard} />
-      )}
+      {/* ✅ Setup Wizard Route - Always defined but conditionally renders */}
+      <Route 
+        path="/setup" 
+        component={() => {
+          // If NOT in setup mode, redirect to login
+          if (!isSetupMode) {
+            return <Redirect to="/login" />;
+          }
+          // If in setup mode, show the wizard
+          return <SetupWizard />;
+        }} 
+      />
       
       {/* ─── PROTECTED ROUTES ─── */}
       
@@ -91,13 +74,12 @@ function Router() {
 
 /**
  * Root App Component
- * Provides global state via AppProvider
  */
 function App() {
   return (
     <AppProvider>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <WouterRouter base={import.meta.env.BASE_PATH.replace(/\/$/, "")}>
           {/* Background Effects */}
           <div className="noise-overlay" />
           <div className="orb orb-1" />
