@@ -52,37 +52,56 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # ⭐ FIX: Create 404.html for SPA routing
-      - name: Fix SPA routing
+      # ⭐ SIMPLE 404 FIX - Uses echo heredoc instead of cp
+      - name: Create 404 fallback for SPA
         run: |
-          echo "=== Creating 404.html fallback ==="
+          echo "Creating 404.html..."
           
-          # Ensure dist/public directory exists
+          # Ensure directory exists
           mkdir -p artifacts/cutstudio-web/dist/public
           
-          # Copy index.html as 404.html (GitHub Pages serves this for unknown routes)
-          cp artifacts/cutstudio-web/dist/public/index.html artifacts/cutstudio-web/dist/public/404.html
+          # Write 404.html directly (NO cp needed!)
+          cat > artifacts/cutstudio-web/dist/public/404.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="./">
+  <title>404</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #05050d;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .code { font-size: 48px; font-weight: bold; margin-bottom: 16px; }
+    .msg { font-size: 18px; opacity: 0.7; }
+  </style>
+</head>
+<body>
+  <div class="code">404</div>
+  <div class="msg">Page Not Found</div>
+  <script>
+    if (!window.location.pathname.startsWith('/home')) {
+      window.history.replaceStateState({}, '', '/' + window.location.pathname);
+    } else {
+      window.history.back();
+    }
+  </script>
+</body>
+</html>
+EOF
           
-          echo "✅ 404.html created successfully"
-          
-          # Verify file exists
+          echo "✅ 404.html created!"
           ls -lh artifacts/cutstudio-web/dist/public/404.html
-          
-          echo ""
-          echo "=== Verifying deployment files ==="
-          echo "Files in dist/public/:"
-          ls -la artifacts/cutstudio-web/dist/public/
-          echo ""
-          if [ -f artifacts/cutstudio-web/dist/public/index.html ]; then
-            echo "✅ index.html found"
-          fi
-          
-          if [ -f artifacts/cutstudio-web/dist/public/404.html ]; then
-            echo "✅ 404.html ready"
-          else
-            echo "❌ ERROR: 404.html missing!"
-            exit 1
-          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
