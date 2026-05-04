@@ -28,10 +28,34 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 
 /**
  * Main Router Configuration
+ * SMART ROUTING: Detects setup mode and redirects automatically!
  */
 function Router() {
   const { isLoading, isSetupMode, currentUser, firebaseReady } = useApp();
 
+  // ─── LOADING STATE ───
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+  // ─── SETUP MODE DETECTION ───
+  // If no users exist and not logged in, show setup wizard on ALL public pages
+  if (isSetupMode && !currentUser) {
+    return (
+      <Switch>
+        <Route path="/setup" component={SetupWizard} />
+        <Route path="/home" component={Home} />
+        {/* All other routes redirect to /setup */}
+        <Route path="/">
+          <Redirect to="/setup" />
+        </Route>
+        <Route component={() => <Redirect to="/setup" />} 
+        />
+      </Switch>
+    );
+  }
+
+  // ─── NORMAL MODE (Has users or logged in) ───
   return (
     <Switch>
       {/* ─── PUBLIC ROUTES ─── */}
@@ -42,7 +66,7 @@ function Router() {
       {/* Login Page */}
       <Route path="/login" component={Login} />
       
-      {/* Setup Wizard Route */}
+      {/* Setup Wizard (only accessible in setup mode, else redirects) */}
       <Route 
         path="/setup" 
         component={() => {
@@ -55,13 +79,19 @@ function Router() {
       
       {/* ─── PROTECTED ROUTES ─── */}
       
-      {/* Dashboard */}
+      {/* Dashboard - requires authentication */}
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       
-      {/* Default redirect */}
-      <Route path="/" component={LoadingScreen} />
+      {/* Default: Redirect based on auth state */}
+      <Route path="/">
+        {currentUser ? (
+          <Redirect to="/dashboard" />
+        ) : (
+          <Redirect to="/login" />
+        )}
+      </Route>
       
-      {/* 404 Not Found */}
+      {/* 404 Not Found - catch all */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -71,16 +101,14 @@ function Router() {
  * Root App Component
  */
 function App() {
-  // ✅ SAFE BASE PATH HANDLING (Fixes the 403/TypeError!)
+  // ✅ SAFE BASE PATH HANDLING
   const getBasePath = () => {
     try {
-      // For GitHub Pages: /repo-name or empty for custom domain
       const basePath = import.meta.env.BASE_PATH || '';
-      // Ensure no trailing slash and handle undefined
       return basePath.replace(/\/$/, '') || '';
     } catch (e) {
-      console.warn('Could not determine base path:', e);
-      return ''; // Fallback to root
+      console.warn('Base path error:', e);
+      return '';
     }
   };
 
@@ -94,7 +122,7 @@ function App() {
           <div className="orb orb-2" />
           <div className="orb orb-3" />
           
-          {/* Main Router */}
+          {/* Main Router with smart logic */}
           <Router />
         </WouterRouter>
         
