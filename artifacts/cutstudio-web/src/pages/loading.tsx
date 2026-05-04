@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
 
 const CHARS = "CUTSTUDIO PRO".split("");
 
 export default function LoadingScreen() {
-  const [_, setLocation] = useLocation();
   const [progress, setProgress] = useState(0);
   const [opacity, setOpacity] = useState(1);
   const [visibleChars, setVisibleChars] = useState(0);
@@ -33,9 +31,9 @@ export default function LoadingScreen() {
       if (p >= 100) {
         p = 100;
         clearInterval(progTimer);
+        // Just fade out — AppRouter handles routing automatically
         setTimeout(() => {
           setOpacity(0);
-          setTimeout(() => setLocation("/home"), 600);
         }, 300);
       }
       setProgress(p);
@@ -47,7 +45,7 @@ export default function LoadingScreen() {
     }, 80);
 
     return () => { clearInterval(charTimer); clearInterval(progTimer); };
-  }, [setLocation]);
+  }, []);
 
   return (
     <div
