@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/lib/store";
@@ -20,53 +20,65 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 
 function AppContent() {
   const { currentUser, isLoading, isSetupMode } = useApp();
+  const [location, navigate] = useLocation();
 
-  // ✅ LOADING STATE - LoadingScreen dikhao
+  // Loading state
   if (isLoading) {
-    return (
-      <div style={{ minHeight: '100vh', position: 'relative', zIndex: 9999 }}>
-        <LoadingScreen />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
-  // ✅ NOT LOADING - Actual content dikhao
-  console.log("🎯 Rendering app content - User:", currentUser?.email || "None", "Setup:", isSetupMode);
-  
+  console.log("📍 Current location:", location);
+  console.log("👤 User:", currentUser?.email || "None");
+  console.log("⚙️ Setup mode:", isSetupMode);
+
+  // Manual redirect logic instead of Redirect component
+  useEffect(() => {
+    if (location === "/") {
+      console.log("🔄 At root, redirecting...");
+      if (isSetupMode) {
+        navigate("/setup");
+      } else if (currentUser) {
+        navigate("/dashboard");
+      } else {
+        navigate("/home"); // Yahan aana chahiye!
+      }
+    }
+  }, [location, currentUser, isSetupMode, navigate]);
+
   return (
     <div style={{ minHeight: '100vh', position: 'relative', zIndex: 1 }}>
       <Switch>
-        <Route path="/">
-          {isSetupMode ? (
-            <Redirect to="/setup" />
-          ) : currentUser ? (
-            <Redirect to="/dashboard" />
-          ) : (
-            <Redirect to="/home" />
-          )}
-        </Route>
-        
         <Route path="/home" component={Home} />
         <Route path="/login" component={Login} />
         <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
+        
+        {/* Root path - fallback */}
+        <Route path="/">
+          <div style={{ padding: 50, color: "white", background: "#05050d" }}>
+            <h2>Redirecting to Home...</h2>
+            <p>If stuck, <a href="/home" style={{ color: "#e8a020" }}>click here</a></p>
+          </div>
+        </Route>
+        
         <Route component={NotFound} />
       </Switch>
     </div>
   );
 }
 
+// Import useEffect
+import { useEffect } from "react";
+
 function App() {
   return (
     <AppProvider>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          {/* ✅ Background effects - z-index ensure kiya */}
           <div className="noise-overlay" style={{ position: 'fixed', zIndex: 0 }} />
           <div className="orb orb-1" style={{ position: 'fixed', zIndex: 0 }} />
           <div className="orb orb-2" style={{ position: 'fixed', zIndex: 0 }} />
           <div className="orb orb-3" style={{ position: 'fixed', zIndex: 0 }} />
           
-          {/* ✅ Content layer */}
           <AppContent />
         </WouterRouter>
         <Toaster />
