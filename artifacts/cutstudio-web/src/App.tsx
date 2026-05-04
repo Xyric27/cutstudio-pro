@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/lib/store";
@@ -10,7 +10,7 @@ import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 
 /**
- * Protected Route Component
+ * Protected Route - Requires login
  */
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { currentUser, isLoading, firebaseReady } = useApp();
@@ -27,71 +27,75 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 }
 
 /**
- * Main Router Configuration
- * SMART ROUTING: Detects setup mode and redirects automatically!
+ * MAIN ROUTER - Handles all scenarios intelligently
  */
 function Router() {
   const { isLoading, isSetupMode, currentUser, firebaseReady } = useApp();
+  const [location] = useLocation();
 
   // ─── LOADING STATE ───
-  if (isLoading) {
+  if (isLoading || !firebaseReady) {
     return <LoadingScreen />;
   }
 
-  // ─── SETUP MODE DETECTION ───
-  // If no users exist and not logged in, show setup wizard on ALL public pages
+  // ─── SCENARIO A: SETUP MODE (No users exist yet) ───
   if (isSetupMode && !currentUser) {
+    // If already on /setup page, show the wizard
+    if (location === '/setup') {
+      return <SetupWizard />;
+    }
+    
+    // For ANY other URL when in setup mode, redirect to /setup
     return (
       <Switch>
         <Route path="/setup" component={SetupWizard} />
-        <Route path="/home" component={Home} />
-        {/* All other routes redirect to /setup */}
         <Route path="/">
           <Redirect to="/setup" />
         </Route>
+        {/* Catch-all: redirect unknown routes to /setup */}
         <Route component={() => <Redirect to="/setup" />} 
         />
       </Switch>
     );
   }
 
-  // ─── NORMAL MODE (Has users or logged in) ───
+  // ─── SCENARIO B: NORMAL MODE (Users exist or logged in) ───
   return (
     <Switch>
-      {/* ─── PUBLIC ROUTES ─── */}
-      
-      {/* Home/Landing Page */}
+      {/* PUBLIC PAGES */}
       <Route path="/home" component={Home} />
       
-      {/* Login Page */}
-      <Route path="/login" component={Login} />
-      
-      {/* Setup Wizard (only accessible in setup mode, else redirects) */}
+      {/* LOGIN PAGE - Only show if not logged in */}
       <Route 
-        path="/setup" 
+        path="/login" 
         component={() => {
-          if (!isSetupMode) {
-            return <Redirect to="/login" />;
+          // If already logged in and visits /login, send to dashboard
+          if (currentUser) {
+            return <Redirect to="/dashboard" />;
           }
-          return <SetupWizard />;
+          return <Login />;
         }} 
       />
       
-      {/* ─── PROTECTED ROUTES ─── */}
-      
-      {/* Dashboard - requires authentication */}
+      {/* SETUP PAGE - If not in setup mode, redirect to login */}
+      <Route 
+        path="/setup" 
+        component={() => <Redirect to="/login" />} 
+      />
+
+      {/* PROTECTED PAGES */}
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       
-      {/* Default: Redirect based on auth state */}
+      {/* ROOT URL "/" - SMART REDIRECT */}
       <Route path="/">
         {currentUser ? (
-          <Redirect to="/dashboard" />
+          <Redirect to="/dashboard" />     // Logged in → Dashboard
         ) : (
-          <Redirect to="/login" />
+          <Redirect to="/login" />           // Not logged in → Login
         )}
       </Route>
-      
-      {/* 404 Not Found - catch all */}
+
+      {/* 404 CATCH-ALL */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -101,13 +105,11 @@ function Router() {
  * Root App Component
  */
 function App() {
-  // ✅ SAFE BASE PATH HANDLING
   const getBasePath = () => {
     try {
       const basePath = import.meta.env.BASE_PATH || '';
       return basePath.replace(/\/$/, '') || '';
     } catch (e) {
-      console.warn('Base path error:', e);
       return '';
     }
   };
@@ -122,11 +124,10 @@ function App() {
           <div className="orb orb-2" />
           <div className="orb orb-3" />
           
-          {/* Main Router with smart logic */}
+          {/* Main Router with all logic */}
           <Router />
         </WouterRouter>
         
-        {/* Global Toast Notifications */}
         <Toaster />
       </TooltipProvider>
     </AppProvider>
