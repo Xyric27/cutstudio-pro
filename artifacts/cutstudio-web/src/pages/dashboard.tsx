@@ -176,7 +176,6 @@ export default function Dashboard() {
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
 
   const clientUsers = users.filter(u => u.role === "client");
   const paidProjects = projects.filter(p => p.status === "paid");
@@ -186,6 +185,9 @@ export default function Dashboard() {
 
   const [newProject, setNewProject] = useState<Partial<Project>>({ title: "", clientEmail: "", price: 0, duration: 0, status: "preview", previewUrl: "", finalUrl: "", desc: "" });
   const [newClient, setNewClient] = useState<Partial<User>>({ name: "", email: "", password: "client123", phone: "", role: "client" });
+
+  // ✅ State for payment loading
+  const [isOpeningPayment, setIsOpeningPayment] = useState(false);
 
   const handleAddProject = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,63 +215,62 @@ export default function Dashboard() {
     toast({ title: "Payment Recorded ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
   };
 
-  // ✅✅✅ UPDATED RAZORPAY FUNCTION ✅✅✅
+  // ✅✅✅ UPDATED PAYMENT HANDLER - Closes modal first! ✅✅✅
   const handlePayNow = () => {
     console.log("💳 === PAYMENT INITIATED ===");
     
-    // Get key - try multiple sources
+    // Get Razorpay key
     let rzpKey = import.meta.env.VITE_RAZORPAY_KEY;
-    
-    // Fallback to firebase config
     if (!rzpKey && firebaseConfig?.razorpayKey) {
       rzpKey = firebaseConfig.razorpayKey;
     }
-    
-    // Final fallback to default test key
     if (!rzpKey) {
-      rzpKey = "rz_test_1DP5mmOlF5G1qee"; // Razorpay's public test key
+      rzpKey = "rz_test_1DP5mmOlF5G1qee"; // Default test key
     }
 
     console.log("🔑 Using Razorpay Key:", rzpKey.substring(0, 15) + "...");
 
     if (!selectedProject) {
       console.error("❌ No project selected");
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: "No project selected",
-        className: "bg-[#0a0a16] border-[#ff3b5c] text-white" 
-      });
+      toast({ variant: "destructive", title: "Error", description: "No project selected", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
       return;
     }
 
-    // Validate amount
     const amountInPaise = Math.round(Number(selectedProject.price) * 100);
     console.log(`💰 Amount: ₹${selectedProject.price} → ${amountInPaise} paise`);
 
-    if (amountInPaise < 100) { // Minimum ₹1
-      toast({ 
-        variant: "destructive", 
-        title: "Invalid Amount", 
-        description: "Minimum payment amount is ₹1",
-        className: "bg-[#0a0a16] border-[#ff3b5c] text-white" 
-      });
+    if (amountInPaise < 100) {
+      toast({ variant: "destructive", title: "Invalid Amount", description: "Minimum payment amount is ₹1", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
       return;
     }
 
-    // Check if Razorpay SDK loaded
+    // ✅ CRITICAL FIX: Close project detail modal FIRST!
+    console.log("🔒 Closing project detail modal...");
+    setIsDetailOpen(false);
+    setIsOpeningPayment(true); // Show loading state
+
+    // Wait for modal to close, then open Razorpay
+    setTimeout(() => {
+      setIsOpeningPayment(false);
+      initiateRazorpayPayment(rzpKey, amountInPaise);
+    }, 400); // 400ms delay for smooth animation
+  };
+
+  // ✅✅✅ INITIATE RAZORPAY (called after modal closes) ✅✅✅
+  const initiateRazorpayPayment = (rzpKey: string, amountInPaise: number) => {
+    console.log("🚀 Initializing Razorpay (modal closed)...");
+
+    // Check if SDK loaded
     if (typeof window.Razorpay === "undefined") {
       console.log("⏳ Loading Razorpay SDK...");
       
       toast({ 
-        variant: "destructive", 
         title: "Loading Payment...", 
         description: "Please wait while we initialize secure payment.",
         className: "bg-[#0a0a16] border-[#e8a020] text-white",
         duration: 3000
       });
 
-      // Load dynamically
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.async = true;
@@ -279,26 +280,20 @@ export default function Dashboard() {
       };
       script.onerror = () => {
         console.error("❌ Failed to load Razorpay SDK");
-        toast({ 
-          variant: "destructive", 
-          title: "Network Error", 
-          description: "Cannot connect to payment server. Check internet connection.",
-          className: "bg-[#0a0a16] border-[#ff3b5c] text-white" 
-        });
+        setIsOpeningPayment(false);
+        toast({ variant: "destructive", title: "Network Error", description: "Cannot connect to payment server.", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
       };
       document.head.appendChild(script);
       return;
     }
 
-    // SDK already loaded - open directly
+    // SDK loaded - open checkout
     openRazorpayCheckout(rzpKey, amountInPaise);
   };
 
-  // ✅✅✅ SEPARATE CHECKOUT FUNCTION ✅✅✅
+  // ✅✅✅ OPEN RAZORPAY CHECKOUT ✅✅✅
   const openRazorpayCheckout = (rzpKey: string, amountInPaise: number) => {
-    setIsPaymentOpen(false);
-
-    console.log("🚀 Opening Razorpay checkout...");
+    console.log("🚀 Opening Razorpay checkout NOW...");
     console.log(`📝 Project: ${selectedProject?.title}`);
 
     const options = {
@@ -309,12 +304,9 @@ export default function Dashboard() {
       description: selectedProject?.title || "Video Editing Service",
       image: "https://xyric27.github.io/cutstudio-pro/favicon.svg",
       
-      order_id: undefined, // Let Razorpay create order automatically
-      
       handler: function (response: any) {
-        console.log("✅ Payment Success Response:", response);
+        console.log("✅ Payment Success:", response);
         
-        // Mark as paid in our system
         if (selectedProject) {
           handleMarkPaid(selectedProject);
         }
@@ -337,17 +329,15 @@ export default function Dashboard() {
         project_id: selectedProject?.id,
         project_title: selectedProject?.title,
         client_email: selectedProject?.clientEmail,
-        platform: "CutStudio Pro Web",
       },
       
       theme: {
-        color: "#e8a020", // Your brand gold color
+        color: "#e8a020",
       },
       
       modal: {
         ondismiss: function() {
-          console.log("⚠️ Payment modal dismissed by user");
-          // Optional: Don't show toast for dismiss, it's normal behavior
+          console.log("⚠️ Payment dismissed by user");
         },
         escape: true,
         animation: true,
@@ -357,30 +347,28 @@ export default function Dashboard() {
     try {
       const rzp = new window.Razorpay(options);
       
-      // Handle payment failure
       rzp.on('payment.failed', function (response: any) {
-        console.error("❌ Payment Failed:", response.error.code, response.error.description);
-        console.error("Full error:", response.error);
+        console.error("❌ Payment Failed:", response.error.description);
         
         toast({
           variant: "destructive",
           title: "❌ Payment Failed",
-          description: response.error?.description || "Transaction could not be completed. Please try again.",
+          description: response.error?.description || "Transaction could not be completed.",
           className: "bg-[#0a0a16] border-[#ff3b5c] text-white",
           duration: 5000,
         });
       });
 
-      console.log("✅ Razorpay instance created, opening modal...");
+      console.log("✅ Razorpay instance created, opening...");
       rzp.open();
       
     } catch (error) {
-      console.error("❌ Razorpay initialization error:", error);
+      console.error("❌ Razorpay error:", error);
       
       toast({
         variant: "destructive",
-        title: "Payment System Error",
-        description: "Could not initialize payment gateway. Please refresh the page and try again.",
+        title: "Payment Error",
+        description: "Could not initialize payment. Please refresh and try again.",
         className: "bg-[#0a0a16] border-[#ff3b5c] text-white",
       });
     }
@@ -401,6 +389,26 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#05050d] text-white pb-20">
+
+      {/* ✅ Payment Loading Overlay */}
+      {isOpeningPayment && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-300">
+          <div className="bg-[#0a0a16] rounded-2xl p-8 text-center max-w-sm mx-4 border border-[#e8a020]/30 shadow-[0_0_40px_rgba(232,160,32,0.2)]">
+            <div className="animate-spin w-16 h-16 border-4 border-[#e8a020]/30 border-t-[#e8a020] rounded-full mx-auto mb-4" />
+            <h3 className="font-display text-2xl text-white mb-2">Preparing Payment</h3>
+            <p className="text-[#606070] text-sm">Opening secure checkout...</p>
+            <div className="mt-4 flex justify-center gap-1">
+              {[0, 1, 2].map(i => (
+                <div 
+                  key={i} 
+                  className="w-2 h-2 rounded-full bg-[#e8a020] animate-bounce" 
+                  style={{ animationDelay: `${i * 150}ms` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── NAV ─── */}
       <nav className="sticky top-0 z-50 nav-glass px-5 md:px-8 h-16 flex items-center justify-between relative">
@@ -677,12 +685,22 @@ export default function Dashboard() {
                       </div>
                       {!isAdmin ? (
                         <button 
-                          className="btn-gold w-full h-12 rounded-xl font-bold text-base relative overflow-hidden shadow-[0_0_24px_rgba(232,160,32,0.35)]" 
+                          className="btn-gold w-full h-12 rounded-xl font-bold text-base relative overflow-hidden shadow-[0_0_24px_rgba(232,160,32,0.35)] hover:scale-[1.02] active:scale-[0.98] transition-transform" 
                           onClick={handlePayNow}
+                          disabled={isOpeningPayment}
                         >
                           <span className="relative z-10 flex items-center justify-center gap-2">
-                            <CreditCard className="w-4 h-4" /> 
-                            {hasRazorpay ? "Pay via Razorpay" : "Pay Now to Unlock"}
+                            {isOpeningPayment ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                Preparing...
+                              </>
+                            ) : (
+                              <>
+                                <CreditCard className="w-4 h-4" /> 
+                                Pay via Razorpay
+                              </>
+                            )}
                           </span>
                         </button>
                       ) : (
