@@ -18,19 +18,27 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   return <Component {...rest} />;
 }
 
-function Router() {
-  return (
-    <Switch>
-      <Route path="/" component={LoadingScreen} />
-      <Route path="/home" component={Home} />
-      <Route path="/login" component={Login} />
-      <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
-
 function App() {
+  const { currentUser, isLoading } = useApp();
+
+  // Agar app load ho rahi hai toh loading screen dikhao
+  if (isLoading) {
+    return (
+      <AppProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <div className="noise-overlay" />
+            <div className="orb orb-1" />
+            <div className="orb orb-2" />
+            <div className="orb orb-3" />
+            <LoadingScreen />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </AppProvider>
+    );
+  }
+
   return (
     <AppProvider>
       <TooltipProvider>
@@ -39,7 +47,18 @@ function App() {
           <div className="orb orb-1" />
           <div className="orb orb-2" />
           <div className="orb orb-3" />
-          <Router />
+          
+          <Switch>
+            {/* Root URL par redirect karo based on login status */}
+            <Route path="/">
+              {currentUser ? <Redirect to="/dashboard" /> : <Redirect to="/home" />}
+            </Route>
+            
+            <Route path="/home" component={Home} />
+            <Route path="/login" component={Login} />
+            <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
+            <Route component={NotFound} />
+          </Switch>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
