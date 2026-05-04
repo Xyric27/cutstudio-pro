@@ -18,28 +18,48 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   return <Component {...rest} />;
 }
 
-// Yeh inner component banaya hai jo AppProvider ke andar hoga
+// ✅ Inner component - yeh AppProvider ke andar hoga
 function AppContent() {
-  const { currentUser, isLoading } = useApp();
+  const { currentUser, isLoading, isSetupMode } = useApp();
 
+  // Loading state
   if (isLoading) {
     return <LoadingScreen />;
   }
 
   return (
     <Switch>
+      {/* Root URL - redirect based on auth status */}
       <Route path="/">
-        {currentUser ? <Redirect to="/dashboard" /> : <Redirect to="/home" />}
+        {isSetupMode ? (
+          <Redirect to="/setup" />
+        ) : currentUser ? (
+          <Redirect to="/dashboard" />
+        ) : (
+          <Redirect to="/home" />
+        )}
       </Route>
       
       <Route path="/home" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
+      
+      {/* Setup route for first-time admin creation */}
+      {isSetupMode && (
+        <Route path="/setup" component={() => {
+          // Import setup page dynamically or create inline
+          const { useState } = require("react");
+          // Yahan tumhara setup page aayega
+          return <div>Setup Page - Create First Admin</div>;
+        }} />
+      )}
+      
       <Route component={NotFound} />
     </Switch>
   );
 }
 
+// ✅ Main App component - bas providers wrap karega
 function App() {
   return (
     <AppProvider>
@@ -51,7 +71,7 @@ function App() {
           <div className="orb orb-2" />
           <div className="orb orb-3" />
           
-          {/* Yeh content ab AppProvider ke andar hai */}
+          {/* Content with access to context */}
           <AppContent />
         </WouterRouter>
         <Toaster />
