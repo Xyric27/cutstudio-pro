@@ -42,7 +42,7 @@ jobs:
       - name: Build
         env:
           PORT: "3000"
-          # ✅✅✅ IMPORTANT: Empty string, NOT "/cutstudio-pro/"!
+          # ⭐ CRITICAL: Empty string for relative paths!
           BASE_PATH: ""
           NODE_ENV: production
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -50,11 +50,57 @@ jobs:
           VITE_RAZORPAY_KEY: ${{ secrets.VITE_RAZORPAY_KEY }}
         run: pnpm --filter @workspace/cutstudio-web run build
 
+      # ⭐ NEW: Verify build output
+      - name: Verify dist structure
+        run: |
+          echo "=== Verifying build output ==="
+          echo ""
+          echo "Files in dist/public:"
+          ls -la artifacts/cutstudio-web/dist/public/
+          echo ""
+          echo "--- Checking required files ---"
+          
+          # Check index.html exists
+          if [ -f artifacts/cutstudio-web/dist/public/index.html ]; then
+            echo "✅ index.html found"
+            head -5 artifacts/cutstudio-web/dist/public/index.html
+          else
+            echo "❌ ERROR: index.html missing!"
+            exit 1
+          fi
+          
+          # Check 404.html was created
+          if [ -f artifacts/cutstudio-web/dist/public/404.html ]; then
+            echo "✅ 404.html created for SPA routing"
+          else
+            echo "⚠️ WARNING: 404.html might be missing!"
+          fi
+          
+          # Show JS/CSS assets
+          echo ""
+          echo "JS/CSS Assets:"
+          find artifacts/cutstudio-web/dist/public/assets -name "*.js" -o -name "*.css" | head -10
+          echo "... and more"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      # ⭐ IMPROVED: Fix SPA routing with verification
       - name: Fix SPA routing
-        run: cp artifacts/cutstudio-web/dist/public/index.html artifacts/cutstudio-web/dist/public/404.html
+        run: |
+          echo "Creating 404.html fallback for SPA..."
+          
+          # Copy index.html as 404.html (GitHub Pages serves this for unknown routes)
+          cp artifacts/cutstudio-web/dist/public/index.html artifacts/cutstudio-web/dist/public/ 404.html
+          
+          # Verify it worked
+          if [ -f artifacts/cutstudio-web/dist/public/404.html ]; then
+            echo "✅ 404.html created successfully"
+            ls -lh artifacts/cutstudio-web/dist/public/404.html
+          else
+            echo "❌ FAILED to create 404.html"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
