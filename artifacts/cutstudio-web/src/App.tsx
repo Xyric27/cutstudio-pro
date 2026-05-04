@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/lib/store";
-import { SetupWizard } from "@/components/ui/SetupWizard"; // ✅ Your path: /ui/SetupWizard
+import { SetupWizard } from "@/components/ui/SetupWizard"; // Your path
 import NotFound from "@/pages/not-found";
 import LoadingScreen from "@/pages/loading";
 import Home from "@/pages/home";
@@ -11,17 +11,14 @@ import Dashboard from "@/pages/dashboard";
 
 /**
  * Protected Route Component
- * Redirects to login if user not authenticated
  */
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { currentUser, isLoading, firebaseReady } = useApp();
   
-  // Still loading or Firebase not ready
   if (isLoading || !firebaseReady) {
     return <LoadingScreen />;
   }
   
-  // Not logged in → redirect to login
   if (!currentUser) {
     return <Redirect to="/login" />;
   }
@@ -42,25 +39,23 @@ function Router() {
       {/* Home/Landing Page */}
       <Route path="/home" component={Home} />
       
-      {/* Login Page - always accessible */}
+      {/* Login Page */}
       <Route path="/login" component={Login} />
       
-      {/* ✅ Setup Wizard Route - Always defined but conditionally renders */}
+      {/* Setup Wizard Route */}
       <Route 
         path="/setup" 
         component={() => {
-          // If NOT in setup mode, redirect to login
           if (!isSetupMode) {
             return <Redirect to="/login" />;
           }
-          // If in setup mode, show the wizard
           return <SetupWizard />;
         }} 
       />
       
       {/* ─── PROTECTED ROUTES ─── */}
       
-      {/* Dashboard - requires authentication */}
+      {/* Dashboard */}
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       
       {/* Default redirect */}
@@ -76,10 +71,23 @@ function Router() {
  * Root App Component
  */
 function App() {
+  // ✅ SAFE BASE PATH HANDLING (Fixes the 403/TypeError!)
+  const getBasePath = () => {
+    try {
+      // For GitHub Pages: /repo-name or empty for custom domain
+      const basePath = import.meta.env.BASE_PATH || '';
+      // Ensure no trailing slash and handle undefined
+      return basePath.replace(/\/$/, '') || '';
+    } catch (e) {
+      console.warn('Could not determine base path:', e);
+      return ''; // Fallback to root
+    }
+  };
+
   return (
     <AppProvider>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_PATH.replace(/\/$/, "")}>
+        <WouterRouter base={getBasePath()}>
           {/* Background Effects */}
           <div className="noise-overlay" />
           <div className="orb orb-1" />
