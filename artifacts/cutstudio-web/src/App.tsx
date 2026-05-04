@@ -11,14 +11,19 @@ import Dashboard from "@/pages/dashboard";
 function useHashLocation() {
   const [path, setPath] = useState(() => {
     if (typeof window !== 'undefined') {
-      return window.location.hash.replace(/^#\/?/, "") || "/";
+      // ✅ FIX: Clean the path - remove ./ and #/
+      let hash = window.location.hash.replace(/^#\/?/, "") || "/";
+      hash = hash.replace(/^\.\//, ""); // Remove ./
+      return hash || "/";
     }
     return "/";
   });
   
   useEffect(() => {
     const handleHash = () => {
-      setPath(window.location.hash.replace(/^#\/?/, "") || "/");
+      let hash = window.location.hash.replace(/^#\/?/, "") || "/";
+      hash = hash.replace(/^\.\//, "");
+      setPath(hash || "/");
     };
     
     window.addEventListener("hashchange", handleHash);
@@ -40,33 +45,36 @@ function AppContent() {
     return <LoadingScreen />;
   }
 
-  console.log("Location:", location, "User:", currentUser?.email);
+  console.log("📍 Clean Location:", location);
 
-  if (location === "/login") {
+  // ✅ FIXED: Proper path matching
+  if (location === "login" || location === "/login") {
+    console.log("🔐 Showing LOGIN");
     return <Login />;
   }
   
-  if (location === "/dashboard") {
+  if (location === "dashboard" || location === "/dashboard") {
     if (!currentUser) {
-      window.location.hash = "/login";
+      window.location.hash = "login";
       return null;
     }
+    console.log("📊 Showing DASHBOARD");
     return <Dashboard />;
   }
   
-  if (location === "/setup" && isSetupMode) {
+  if ((location === "setup" || location === "/setup") && isSetupMode) {
     return (
       <div style={{ color: 'white', padding: 50, textAlign: 'center', minHeight: '100vh' }}>
         <h2>Setup Wizard</h2>
-        <button onClick={() => window.location.hash = "/home"} style={{ marginTop: 20, padding: '10px 20px' }}>
+        <button onClick={() => window.location.hash = "home"} style={{ marginTop: 20 }}>
           Go Home
         </button>
       </div>
     );
   }
 
-  // Default: Show Home
-  console.log("Showing HOME page");
+  // Default: Show Home for "/" or "home" or anything else
+  console.log("🏠 Showing HOME page");
   return <Home />;
 }
 
