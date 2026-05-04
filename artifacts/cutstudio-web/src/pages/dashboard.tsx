@@ -185,6 +185,7 @@ export default function Dashboard() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+
   const [paymentMethod, setPaymentMethod] = useState<string | null>("upi");
 
   const clientUsers = users.filter(u => u.role === "client");
@@ -223,9 +224,10 @@ export default function Dashboard() {
   };
 
   const handlePayNow = () => {
-    const rzpKey = firebaseConfig?.razorpayKey;
+    // Always read from env var directly — firebaseConfig in localStorage may be stale
+    const rzpKey = import.meta.env.VITE_RAZORPAY_KEY || firebaseConfig?.razorpayKey;
     // Use real Razorpay if key is configured
-    if (isProductionMode && rzpKey && selectedProject && typeof window.Razorpay !== "undefined") {
+    if (rzpKey && selectedProject && typeof window.Razorpay !== "undefined") {
       const rzp = new window.Razorpay({
         key: rzpKey,
         amount: selectedProject.price * 100, // paise
@@ -246,6 +248,14 @@ export default function Dashboard() {
         modal: { ondismiss: () => {} },
       });
       rzp.open();
+    } else {
+      // Razorpay not configured or not loaded
+      toast({
+        variant: "destructive",
+        title: "Payment Error",
+        description: "Razorpay is not configured. Please contact support.",
+        className: "bg-[#0a0a16] border-[#ff3b5c] text-white",
+      });
     }
   };
 
@@ -260,7 +270,7 @@ export default function Dashboard() {
   if (!currentUser) return null;
 
   const isAdmin = currentUser.role === "admin";
-  const hasRazorpay = isProductionMode && !!firebaseConfig?.razorpayKey;
+  const hasRazorpay = !!(import.meta.env.VITE_RAZORPAY_KEY || firebaseConfig?.razorpayKey);
 
   return (
     <div className="min-h-screen bg-[#05050d] text-white pb-20">
@@ -620,7 +630,6 @@ export default function Dashboard() {
                   <Shield className="w-3 h-3" /> Secured by Razorpay · 256-bit SSL
                 </p>
               </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
