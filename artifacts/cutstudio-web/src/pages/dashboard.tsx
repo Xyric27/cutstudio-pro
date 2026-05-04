@@ -800,6 +800,7 @@ function ClientsTable({ clients, projects, onDelete, onAddProject }: { clients: 
   );
 }
 
+
 /* ─── EMPTY STATE ─── */
 function EmptyState({ onAdd, isAdmin }: { onAdd?: () => void; isAdmin: boolean }) {
   return (
