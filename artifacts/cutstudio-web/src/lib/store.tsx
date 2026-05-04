@@ -37,7 +37,7 @@ interface AppState {
   isProductionMode: boolean;
   firebaseReady: boolean;
   isLoading: boolean;
-  isSetupMode: boolean; // NEW: First-time setup needed
+  isSetupMode: boolean; // First-time setup needed
   firebaseConfig: FirebaseConfig;
 }
 
@@ -54,7 +54,7 @@ interface AppContextType extends AppState {
   setFirebaseConfig: (config: FirebaseConfig) => void;
   refreshData: () => Promise<void>;
   
-  // NEW: Filtered data for current admin
+  // Filtered data for current admin
   myClients: User[];      // Only this admin's clients
   myProjects: Project[];  // Only this admin's projects
 }
@@ -69,7 +69,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     isProductionMode: true,
     firebaseReady: false,
     isLoading: true,
-    isSetupMode: false, // Will be determined after Firebase loads
+    isSetupMode: false,
     firebaseConfig: {
       apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
       projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
@@ -116,7 +116,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         
         if (admins.length === 0 && fsUsers.length === 0) {
           // FIRST TIME SETUP - No users at all
-          console.log("🌱 Setup Mode: No users found. Need to create first admin.");
+          console.log("🌱 Setup Mode: No users found.");
+          
+          // ✅ SILENT MODE - NO TOAST NOTIFICATION!
           update({ 
             isSetupMode: true, 
             firebaseReady: true, 
@@ -125,13 +127,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             projects: [] 
           });
           
-          toast({
-            title: "🚀 Welcome! Setup Required",
-            description: "Create your first admin account to get started.",
-            className: "bg-[#0a0a16] border-[#e8a020] text-white",
-            duration: 10000,
-          });
-          return;
+          return; // Exit silently
         }
 
         // Normal operation - data loaded
@@ -143,12 +139,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           isLoading: false 
         });
 
+        // ✅ SILENT CONNECTION - NO "FIREBASE CONNECTED" TOAST!
+        // Just log to console for debugging
         if (admins.length > 0) {
-          toast({ 
-            title: "🔥 Firebase Connected!", 
-            description: `${admins.length} admin(s), ${fsUsers.length - admins.length} client(s)`,
-            className: "bg-[#0a0a16] border-[#00e5dc] text-white" 
-          });
+          console.log(`✅ System ready: ${admins.length} admin(s), ${fsUsers.length - admins.length} client(s)`);
         }
 
         // Real-time listeners
@@ -172,6 +166,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       } catch (e: any) {
         console.error("❌ Firebase Error:", e);
+        
+        // ✅ ONLY SHOW ERROR ON ACTUAL FAILURE (not on normal connect)
         update({
           users: [],
           projects: [],
@@ -200,7 +196,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Login function - validates against Firestore data
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Find user in loaded users array
       const user = state.users.find(u => 
         u.email.toLowerCase() === email.toLowerCase()
       );
@@ -215,7 +210,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
 
-      // Simple password check (in production, use proper auth!)
       if (user.password !== password) {
         toast({
           variant: "destructive",
@@ -230,6 +224,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.log(`✅ User logged in: ${user.email} (${user.role})`);
       update({ currentUser: user });
       
+      // ✅ KEEP LOGIN SUCCESS TOAST (this is user action feedback!)
       toast({
         title: `Welcome back, ${user.name}!`,
         description: `Logged in as ${user.role}`,
@@ -261,14 +256,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       await fsSet("users", newAdmin);
       
       console.log("✅ First admin created:", newAdmin.email);
+      
+      // ✅ KEEP ADMIN CREATION TOAST (important user action!)
       toast({
         title: "🎉 Admin Created!",
-        description: `You can now log in as ${newAdmin.email}`,
+        description: `Account ready. You can now log in.`,
         className: "bg-[#0a0a16] border-[#00e57a] text-white"
       });
 
-      // Auto-login as this admin
-      update({ currentUser: newAdmin, isSetupMode: false });
+      // ✅ DO NOT AUTO-LOGIN! Let user navigate manually.
+      // Just mark setup as complete
+      update({ isSetupMode: false });
 
     } catch (e) {
       console.error("❌ Error creating admin:", e);
@@ -321,7 +319,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const addUser = async (user: User) => {
     try {
-      // If adding a client, assign to current admin
       if (user.role === "client" && state.currentUser?.role === "admin") {
         user.assignedToAdmin = state.currentUser.uid;
       }
