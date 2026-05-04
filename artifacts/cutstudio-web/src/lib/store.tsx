@@ -7,10 +7,12 @@ export type Role = "admin" | "client";
 export interface User {
   uid: string;
   email: string;
-  password?: string; // Only for creation, never stored in Firestore!
+  password?: string; // Stored in Firestore (set via Firebase Console)
   name: string;
   role: Role;
   phone?: string;
+  assignedToAdmin?: string; // For clients - which admin owns them
+  createdAt?: string;
 }
 
 export interface Project {
@@ -25,6 +27,7 @@ export interface Project {
   desc: string;
   createdAt: string;
   paidAt?: string;
+  createdBy?: string; // Which admin created this
 }
 
 interface AppState {
@@ -33,46 +36,40 @@ interface AppState {
   projects: Project[];
   isProductionMode: boolean;
   firebaseReady: boolean;
-  isLoading: boolean; // NEW: Track loading state
+  isLoading: boolean;
+  isSetupMode: boolean; // NEW: First-time setup needed
   firebaseConfig: FirebaseConfig;
 }
 
 interface AppContextType extends AppState {
-  login: (user: User) => void;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   addProject: (project: Project) => Promise<void>;
   updateProject: (project: Project) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   addUser: (user: User) => Promise<void>;
   deleteUser: (uid: string) => Promise<void>;
+  createFirstAdmin: (adminData: Omit<User, 'uid' | 'role'>) => Promise<void>;
   setProductionMode: (isProd: boolean) => void;
   setFirebaseConfig: (config: FirebaseConfig) => void;
-  refreshData: () => Promise<void>; // NEW: Manual refresh
+  refreshData: () => Promise<void>;
+  
+  // NEW: Filtered data for current admin
+  myClients: User[];      // Only this admin's clients
+  myProjects: Project[];  // Only this admin's projects
 }
-
-// ✏️ Default admin user (for seeding only)
-const defaultAdminUser: User = {
-  uid: "admin-001",
-  email: "admin@yourdomain.com",   // ← Change this
-  password: "Change@Me123!",        // ← Change this
-  name: "Admin",
-  role: "admin",
-};
-
-// ❌ REMOVED: const LS_KEY = "cutstudio_state_v3"; 
-// ❌ REMOVED: All localStorage logic
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  // ✅ Initial State: NO localStorage, fresh every time
   const [state, setState] = useState<AppState>({
     currentUser: null,
-    users: [], // Start empty, load from Firebase
-    projects: [], // Start empty, load from Firebase
+    users: [],
+    projects: [],
     isProductionMode: true,
     firebaseReady: false,
-    isLoading: true, // NEW: Show loading spinner initially
+    isLoading: true,
+    isSetupMode: false, // Will be determined after Firebase loads
     firebaseConfig: {
       apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
       projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
@@ -82,14 +79,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const { toast } = useToast();
 
-  // ✅ REMOVED: localStorage persistence useEffect
-  // Data now lives ONLY in Firebase + React state (memory)
-
   const update = useCallback((updates: Partial<AppState>) => {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  // ✅ Firebase: Initialize and sync (MAIN DATA SOURCE)
+  // Initialize Firebase and load data
   useEffect(() => {
     if (!state.firebaseConfig.apiKey || !state.firebaseConfig.projectId) {
       console.warn("⚠️ Firebase config missing");
@@ -102,72 +96,94 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     const initializeAndSync = async () => {
       try {
-        console.log("🔥 Initializing Firebase (NO localStorage)...");
+        console.log("🔥 Initializing Firebase...");
 
-        // Initialize Firebase SDK
         const ready = initFirebase(state.firebaseConfig);
         if (!ready) {
-          throw new Error("Firebase initialization failed. Check API Key.");
+          throw new Error("Firebase initialization failed");
         }
 
-        // Check if collections exist and seed if needed
+        // Load all data from Firestore
         const [fsUsers, fsProjects] = await Promise.all([
           fsGetAll<User>("users"),
           fsGetAll<Project>("projects"),
         ]);
 
-        console.log(`📊 Found ${fsUsers.length} users, ${fsProjects.length} projects in Firestore`);
+        console.log(`📊 Loaded ${fsUsers.length} users, ${fsProjects.length} projects`);
 
-        // Seed default admin if no users exist (first time setup)
-        if (fsUsers.length === 0) {
-          console.log("🌱 Seeding default admin user...");
-          await fsSet("users", { ...defaultAdminUser, createdAt: new Date().toISOString() });
+        // Check if any admin exists
+        const admins = fsUsers.filter(u => u.role === "admin");
+        
+        if (admins.length === 0 && fsUsers.length === 0) {
+          // FIRST TIME SETUP - No users at all
+          console.log("🌱 Setup Mode: No users found. Need to create first admin.");
+          update({ 
+            isSetupMode: true, 
+            firebaseReady: true, 
+            isLoading: false,
+            users: [], 
+            projects: [] 
+          });
+          
+          toast({
+            title: "🚀 Welcome! Setup Required",
+            description: "Create your first admin account to get started.",
+            className: "bg-[#0a0a16] border-[#e8a020] text-white",
+            duration: 10000,
+          });
+          return;
         }
 
-        // Use Firestore data (or empty arrays if first time)
-        const usersToUse = fsUsers.length > 0 ? fsUsers : [defaultAdminUser];
-        const projectsToUse = fsProjects.length > 0 ? fsProjects : [];
-
-        // Update state with Firebase data
+        // Normal operation - data loaded
         update({ 
-          users: usersToUse, 
-          projects: projectsToUse, 
+          users: fsUsers, 
+          projects: fsProjects, 
+          isSetupMode: false,
           firebaseReady: true,
           isLoading: false 
         });
 
-        toast({ 
-          title: "🔥 Firebase Connected", 
-          description: `${usersToUse.length} users, ${projectsToUse.length} projects loaded`, 
-          className: "bg-[#0a0a16] border-[#00e5dc] text-white" 
-        });
+        if (admins.length > 0) {
+          toast({ 
+            title: "🔥 Firebase Connected!", 
+            description: `${admins.length} admin(s), ${fsUsers.length - admins.length} client(s)`,
+            className: "bg-[#0a0a16] border-[#00e5dc] text-white" 
+          });
+        }
 
-        // ✅ REAL-TIME LISTENERS: Keep data synced with Firestore
+        // Real-time listeners
         unsubUsers = fsListen<User>("users", (users) => {
-          console.log("👥 Users updated from Firestore:", users.length);
+          console.log("👥 Users updated:", users.length);
           update({ users });
+          
+          // Re-check setup mode whenever users change
+          const adminCount = users.filter(u => u.role === "admin").length;
+          if (adminCount === 0 && users.length === 0) {
+            update({ isSetupMode: true });
+          } else {
+            update({ isSetupMode: false });
+          }
         });
 
         unsubProjects = fsListen<Project>("projects", (projects) => {
-          console.log("📹 Projects updated from Firestore:", projects.length);
+          console.log("📹 Projects updated:", projects.length);
           update({ projects });
         });
 
       } catch (e: any) {
         console.error("❌ Firebase Error:", e);
-        
-        // Fallback: Use default admin in memory only (won't persist)
         update({
-          users: [defaultAdminUser],
+          users: [],
           projects: [],
           firebaseReady: false,
-          isLoading: false
+          isLoading: false,
+          isSetupMode: false
         });
 
         toast({ 
           variant: "destructive", 
-          title: "Firebase Connection Failed", 
-          description: e?.message || "Using demo mode. Data won't be saved.",
+          title: "Connection Failed", 
+          description: e?.message || "Check your configuration",
           className: "bg-[#0a0a16] border-[#ff3b5c] text-white" 
         });
       }
@@ -175,15 +191,160 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     initializeAndSync();
 
-    // Cleanup listeners on unmount
     return () => {
       unsubUsers?.();
       unsubProjects?.();
-      console.log("🧹 Cleaned up Firebase listeners");
     };
   }, [state.firebaseConfig.apiKey, state.firebaseConfig.projectId]);
 
-  // ✅ NEW: Manual refresh function
+  // Login function - validates against Firestore data
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      // Find user in loaded users array
+      const user = state.users.find(u => 
+        u.email.toLowerCase() === email.toLowerCase()
+      );
+
+      if (!user) {
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "User not found. Contact your administrator.",
+          className: "bg-[#0a0a16] border-[#ff3b5c] text-white"
+        });
+        return false;
+      }
+
+      // Simple password check (in production, use proper auth!)
+      if (user.password !== password) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Password",
+          description: "Please check your credentials.",
+          className: "bg-[#0a0a16] border-[#ff3b5c] text-white"
+        });
+        return false;
+      }
+
+      // Success!
+      console.log(`✅ User logged in: ${user.email} (${user.role})`);
+      update({ currentUser: user });
+      
+      toast({
+        title: `Welcome back, ${user.name}!`,
+        description: `Logged in as ${user.role}`,
+        className: "bg-[#0a0a16] border-[#00e57a] text-white"
+      });
+      
+      return true;
+
+    } catch (e) {
+      console.error("❌ Login error:", e);
+      return false;
+    }
+  };
+
+  // Create first admin (only works in setup mode)
+  const createFirstAdmin = async (adminData: Omit<User, 'uid' | 'role'>) => {
+    if (!state.isSetupMode) {
+      throw new Error("Setup already completed. Use normal user creation.");
+    }
+
+    try {
+      const newAdmin: User = {
+        uid: `admin-${Date.now()}`,
+        ...adminData,
+        role: "admin",
+        createdAt: new Date().toISOString(),
+      };
+
+      await fsSet("users", newAdmin);
+      
+      console.log("✅ First admin created:", newAdmin.email);
+      toast({
+        title: "🎉 Admin Created!",
+        description: `You can now log in as ${newAdmin.email}`,
+        className: "bg-[#0a0a16] border-[#00e57a] text-white"
+      });
+
+      // Auto-login as this admin
+      update({ currentUser: newAdmin, isSetupMode: false });
+
+    } catch (e) {
+      console.error("❌ Error creating admin:", e);
+      throw e;
+    }
+  };
+
+  // Logout
+  const logout = () => {
+    console.log("👋 Logged out");
+    update({ currentUser: null });
+  };
+
+  // CRUD Operations with admin isolation
+  const addProject = async (project: Project) => {
+    try {
+      const projectWithMeta = {
+        ...project,
+        createdBy: state.currentUser?.uid,
+        createdAt: project.createdAt || new Date().toISOString(),
+      };
+      
+      await fsSet("projects", projectWithMeta);
+      toast({ title: "Project Created ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Failed to save", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
+      throw e;
+    }
+  };
+
+  const updateProject = async (project: Project) => {
+    try {
+      await fsSet("projects", project);
+      toast({ title: "Project Updated ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Update failed", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
+      throw e;
+    }
+  };
+
+  const deleteProject = async (id: string) => {
+    try {
+      await fsDelete("projects", id);
+      toast({ title: "Project Deleted ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Delete failed", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
+      throw e;
+    }
+  };
+
+  const addUser = async (user: User) => {
+    try {
+      // If adding a client, assign to current admin
+      if (user.role === "client" && state.currentUser?.role === "admin") {
+        user.assignedToAdmin = state.currentUser.uid;
+      }
+
+      const { password, ...safeUserData } = user;
+      await fsSet("users", safeUserData as User);
+      toast({ title: `${user.role === 'admin' ? 'Admin' : 'Client'} Added ✓`, className: "bg-[#0a0a16] border-[#00e5dc] text-white" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Failed to add user", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
+      throw e;
+    }
+  };
+
+  const deleteUser = async (uid: string) => {
+    try {
+      await fsDelete("users", uid);
+      toast({ title: "User Deleted ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Delete failed", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
+      throw e;
+    }
+  };
+
   const refreshData = async () => {
     try {
       update({ isLoading: true });
@@ -191,11 +352,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         fsGetAll<User>("users"),
         fsGetAll<Project>("projects"),
       ]);
-      update({ 
-        users: fsUsers, 
-        projects: fsProjects, 
-        isLoading: false 
-      });
+      update({ users: fsUsers, projects: fsProjects, isLoading: false });
       toast({ title: "Data Refreshed ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
     } catch (e) {
       update({ isLoading: false });
@@ -203,98 +360,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Filtered data based on current user role
+  const myClients = state.currentUser?.role === "admin"
+    ? state.users.filter(u => u.role === "client" && u.assignedToAdmin === state.currentUser?.uid)
+    : [];
+
+  const myProjects = state.currentUser?.role === "admin"
+    ? state.projects.filter(p => p.createdBy === state.currentUser?.uid)
+    : state.projects.filter(p => p.clientEmail === state.currentUser?.email);
+
   const value: AppContextType = {
     ...state,
-    
-    // Auth functions (in-memory only, no localStorage)
-    login: (user) => {
-      console.log("✅ User logged in:", user.email);
-      update({ currentUser: user });
-    },
-    
-    logout: () => {
-      console.log("👋 User logged out (cleared memory)");
-      update({ currentUser: null });
-      // Note: No localStorage to clear! ✓
-    },
-
-    // ✅ CRUD Operations: Write to Firebase FIRST, then update local state
-    addProject: async (project) => {
-      try {
-        if (state.firebaseReady) {
-          await fsSet("projects", project); // Write to Firestore first
-          console.log("💾 Project saved to Firestore:", project.id);
-        }
-        // Update local state for immediate UI feedback
-        update({ projects: [project, ...state.projects] });
-        toast({ title: "Project Created ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
-      } catch (e) {
-        toast({ variant: "destructive", title: "Failed to save project", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
-        throw e;
-      }
-    },
-
-    updateProject: async (project) => {
-      try {
-        if (state.firebaseReady) {
-          await fsSet("projects", project); // Update in Firestore
-          console.log("✏️ Project updated in Firestore:", project.id);
-        }
-        update({ projects: state.projects.map(p => p.id === project.id ? project : p) });
-        toast({ title: "Project Updated ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
-      } catch (e) {
-        toast({ variant: "destructive", title: "Failed to update", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
-        throw e;
-      }
-    },
-
-    deleteProject: async (id) => {
-      try {
-        if (state.firebaseReady) {
-          await fsDelete("projects", id); // Delete from Firestore
-          console.log("🗑️ Project deleted from Firestore:", id);
-        }
-        update({ projects: state.projects.filter(p => p.id !== id) });
-        toast({ title: "Project Deleted ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
-      } catch (e) {
-        toast({ variant: "destructive", title: "Failed to delete", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
-        throw e;
-      }
-    },
-
-    addUser: async (user) => {
-      try {
-        if (state.firebaseReady) {
-          // Never store password in Firestore!
-          const { password, ...safeUserData } = user;
-          await fsSet("users", safeUserData); // Write to Firestore (without password)
-          console.log("👤 User saved to Firestore:", user.uid);
-        }
-        update({ users: [...state.users, user] }); // Keep password in memory only
-        toast({ title: "Client Added ✓", className: "bg-[#0a0a16] border-[#00e5dc] text-white" });
-      } catch (e) {
-        toast({ variant: "destructive", title: "Failed to add client", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
-        throw e;
-      }
-    },
-
-    deleteUser: async (uid) => {
-      try {
-        if (state.firebaseReady) {
-          await fsDelete("users", uid); // Delete from Firestore
-          console.log("🗑️ User deleted from Firestore:", uid);
-        }
-        update({ users: state.users.filter(u => u.uid !== uid) });
-        toast({ title: "Client Deleted ✓", className: "bg-[#0a0a16] border-[#00e57a] text-white" });
-      } catch (e) {
-        toast({ variant: "destructive", title: "Failed to delete", className: "bg-[#0a0a16] border-[#ff3b5c] text-white" });
-        throw e;
-      }
-    },
-
+    login,
+    logout,
+    addProject,
+    updateProject,
+    deleteProject,
+    addUser,
+    deleteUser,
+    createFirstAdmin,
     setProductionMode: (isProd) => update({ isProductionMode: isProd }),
     setFirebaseConfig: (config) => update({ firebaseConfig: config }),
-    refreshData, // NEW: Expose refresh function
+    refreshData,
+    myClients,
+    myProjects,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
