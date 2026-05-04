@@ -46,16 +46,13 @@ jobs:
           NODE_ENV: production
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          # ✅ CORRECTED: Removed 'secret' from end (unless your secret is actually named that)
           VITE_RAZORPAY_KEY: ${{ secrets.VITE_RAZORPAY_KEY }}
         run: pnpm --filter @workspace/cutstudio-web run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # ⭐ NO 404.html Nahi Banayega!
-      # GitHub Pages automatically serves index.html for unknown routes
-      # We only need to upload dist/public folder
-      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
