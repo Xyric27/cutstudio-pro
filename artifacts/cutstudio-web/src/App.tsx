@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Router as WouterRouter } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/lib/store";
-import NotFound from "@/pages/not-found";
 import LoadingScreen from "@/pages/loading";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 
-// ✅ CUSTOM HASH LOCATION HOOK (No dependency issues!)
+// Custom hash location hook
 function useHashLocation() {
   const [path, setPath] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -20,8 +19,7 @@ function useHashLocation() {
   
   useEffect(() => {
     const handleHash = () => {
-      const newPath = window.location.hash.replace(/^#\/?/, "") || "/";
-      setPath(newPath);
+      setPath(window.location.hash.replace(/^#\/?/, "") || "/");
     };
     
     window.addEventListener("hashchange", handleHash);
@@ -35,65 +33,77 @@ function useHashLocation() {
   return [path, navigate] as const;
 }
 
-function ProtectedRoute({ component: Component, ...rest }: any) {
-  const { currentUser } = useApp();
-  
-  if (!currentUser) {
-    return <Redirect to="/login" />;
-  }
-  
-  return <Component {...rest} />;
-}
-
-function AppRoutes() {
+function AppContent() {
   const { currentUser, isLoading, isSetupMode } = useApp();
+  const [location] = useHashLocation();
 
   // Loading state
   if (isLoading) {
+    console.log("⏳ Loading...");
     return <LoadingScreen />;
   }
 
-  console.log("🎯 App ready - User:", currentUser?.email || "Guest");
+  console.log("📍 Location:", location);
+  console.log("👤 User:", currentUser?.email || "Guest");
+  console.log("⚙️ Setup:", isSetupMode);
 
-  return (
-    <Switch>
-      {/* Root redirect */}
-      <Route path="/">
-        {currentUser ? (
-          <WouterRouter.Redirect to="/dashboard" />
-        ) : (
-          <WouterRouter.Redirect to="/home" />
-        )}
-      </Route>
+  // ✅ DIRECT RENDER BASED ON LOCATION
+  switch (location) {
+    case "/login":
+      console.log("🔐 Showing LOGIN page");
+      return <Login />;
       
-      {/* Public routes */}
-      <Route path="/home" component={Home} />
-      <Route path="/login" component={Login} />
+    case "/dashboard":
+      if (!currentUser) {
+        console.log("❌ Not logged in, redirecting to login");
+        window.location.hash = "/login";
+        return null;
+      }
+      console.log("📊 Showing DASHBOARD");
+      return <Dashboard />;
       
-      {/* Protected routes */}
-      <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-      
-      {/* Setup mode route */}
-      {isSetupMode && (
-        <Route path="/setup" component={() => (
-          <div style={{ color: 'white', padding: 50, textAlign: 'center' }}>
-            <h2>Setup Wizard</h2>
+    case "/setup":
+      if (isSetupMode) {
+        console.log("🔧 Showing SETUP page");
+        return (
+          <div style={{ color: 'white', padding: 50, textAlign: 'center', minHeight: '100vh', backgroundColor: '#05050d' }}>
+            <h2 style={{ fontSize: '3rem', marginBottom: '20px' }}>Setup Wizard</h2>
             <p>Create your first admin account</p>
+            <button 
+              onClick={() => window.location.hash = "/home"}
+              style={{
+                marginTop: '30px',
+                padding: '15px 30px',
+                background: 'linear-gradient(135deg, #e8a020, #e040a0)',
+                border: 'none',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              Go to Home
+            </button>
           </div>
-        )} />
-      )}
+        );
+      }
+      // If not in setup mode, redirect to home
+      console.log("⚠️ Not setup mode, going home");
+      window.location.hash = "/home";
+      return null;
       
-      {/* 404 fallback */}
-      <Route component={NotFound} />
-    </Switch>
-  );
+    case "/home":
+    default:
+      console.log("🏠 Showing HOME page!!!!!");
+      return <Home />;
+  }
 }
 
 function App() {
   return (
     <AppProvider>
       <TooltipProvider>
-        {/* ✅ HASH ROUTING WITH CUSTOM HOOK! */}
         <WouterRouter 
           base={import.meta.env.BASE_URL.replace(/\/$/, "")}
           hook={useHashLocation}
@@ -110,8 +120,8 @@ function App() {
             zIndex: 1, 
             minHeight: '100vh',
             backgroundColor: '#05050d'
-          }}>
-            <AppRoutes />
+          }>
+            <AppContent />
           </main>
         </WouterRouter>
         
