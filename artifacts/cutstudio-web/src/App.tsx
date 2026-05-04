@@ -7,13 +7,13 @@ import LoadingScreen from "@/pages/loading";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+import SetupWizard from "@/pages/setup"; // ✅ Setup Wizard imported
 
 function useHashLocation() {
   const [path, setPath] = useState(() => {
     if (typeof window !== 'undefined') {
-      // ✅ FIX: Clean the path - remove ./ and #/
       let hash = window.location.hash.replace(/^#\/?/, "") || "/";
-      hash = hash.replace(/^\.\//, ""); // Remove ./
+      hash = hash.replace(/^\.\//, "");
       return hash || "/";
     }
     return "/";
@@ -45,16 +45,18 @@ function AppContent() {
     return <LoadingScreen />;
   }
 
-  console.log("📍 Clean Location:", location);
+  console.log("📍 Location:", location, "| Setup Mode:", isSetupMode);
 
-  // ✅ FIXED: Proper path matching
+  // ✅ LOGIN PAGE
   if (location === "login" || location === "/login") {
     console.log("🔐 Showing LOGIN");
     return <Login />;
   }
   
+  // ✅ DASHBOARD (Protected)
   if (location === "dashboard" || location === "/dashboard") {
     if (!currentUser) {
+      console.log("❌ Not logged in, redirecting...");
       window.location.hash = "login";
       return null;
     }
@@ -62,18 +64,19 @@ function AppContent() {
     return <Dashboard />;
   }
   
-  if ((location === "setup" || location === "/setup") && isSetupMode) {
-    return (
-      <div style={{ color: 'white', padding: 50, textAlign: 'center', minHeight: '100vh' }}>
-        <h2>Setup Wizard</h2>
-        <button onClick={() => window.location.hash = "home"} style={{ marginTop: 20 }}>
-          Go Home
-        </button>
-      </div>
-    );
+  // ✅ SETUP WIZARD (Only when isSetupMode is true)
+  if ((location === "setup" || location === "/setup")) {
+    if (isSetupMode) {
+      console.log("🔧 Showing SETUP WIZARD");
+      return <SetupWizard />; // ✅ Real setup component
+    } else {
+      console.log("⚠️ Setup not needed, redirecting home");
+      window.location.hash = "home";
+      return null;
+    }
   }
 
-  // Default: Show Home for "/" or "home" or anything else
+  // ✅ DEFAULT: HOME PAGE
   console.log("🏠 Showing HOME page");
   return <Home />;
 }
@@ -86,12 +89,19 @@ function App() {
           base={import.meta.env.BASE_URL.replace(/\/$/, "")}
           hook={useHashLocation}
         >
+          {/* Background effects */}
           <div className="noise-overlay" style={{ position: 'fixed', inset: 0, zIndex: 0 }} />
           <div className="orb orb-1" style={{ position: 'fixed', zIndex: 0 }} />
           <div className="orb orb-2" style={{ position: 'fixed', zIndex: 0 }} />
           <div className="orb orb-3" style={{ position: 'fixed', zIndex: 0 }} />
           
-          <main style={{ position: 'relative', zIndex: 1, minHeight: '100vh', backgroundColor: '#05050d' }}>
+          {/* Main content */}
+          <main style={{ 
+            position: 'relative', 
+            zIndex: 1, 
+            minHeight: '100vh', 
+            backgroundColor: '#05050d' 
+          }}>
             <AppContent />
           </main>
         </WouterRouter>
