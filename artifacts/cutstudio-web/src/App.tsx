@@ -26,10 +26,12 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
 function AppRouter() {
   const { isLoading, isSetupMode, currentUser, firebaseReady } = useApp();
 
+  // ─── LOADING STATE ───
   if (isLoading || !firebaseReady) {
     return <LoadingScreen />;
   }
 
+  // ─── SETUP MODE ───
   if (isSetupMode && !currentUser) {
     return (
       <Switch>
@@ -44,6 +46,7 @@ function AppRouter() {
     );
   }
 
+  // ─── NORMAL MODE ───
   return (
     <Switch>
       <Route path="/home" component={Home} />
@@ -70,13 +73,14 @@ function AppRouter() {
 
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       
+      {/* ⭐ ROOT URL "/" */}
       <Route path="/">
-        {(() => {
+        {() => {
           if (currentUser) {
             return <Redirect to="/dashboard" />;
           }
           return <Redirect to="/login" />;
-        })()}
+        }()}
       </Route>
 
       <Route component={NotFound} />
@@ -93,8 +97,10 @@ function App() {
         <WouterRouter base={basePath}>
           <div className="noise-overlay" />
           <div className="orb orb-1" />
-          <div className="orb orb-2" />
-          <div className="orb orb-3" />
+          <div className="orb orb-2" 
+               style={{background: 'radial-gradient(circle at 20% 50%, transparent, rgba(232,160,32,0.2) 0%, transparent)'}} />
+          <div className="orb orb-3" 
+               style={{background: 'radial-gradient(circle at 80% 20%, transparent, rgba(224,64,64,0.15) 0%, transparent)'}} />
           
           <AppRouter />
         </WouterRouter>
