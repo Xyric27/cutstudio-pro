@@ -52,57 +52,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # ⭐ SIMPLE 404 FIX - Uses echo heredoc instead of cp
-      - name: Create 404 fallback for SPA
-        run: |
-          echo "Creating 404.html..."
-          
-          # Ensure directory exists
-          mkdir -p artifacts/cutstudio-web/dist/public
-          
-          # Write 404.html directly (NO cp needed!)
-          cat > artifacts/cutstudio-web/dist/public/404.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <base href="./">
-  <title>404</title>
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: #05050d;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
-    .code { font-size: 48px; font-weight: bold; margin-bottom: 16px; }
-    .msg { font-size: 18px; opacity: 0.7; }
-  </style>
-</head>
-<body>
-  <div class="code">404</div>
-  <div class="msg">Page Not Found</div>
-  <script>
-    if (!window.location.pathname.startsWith('/home')) {
-      window.history.replaceStateState({}, '', '/' + window.location.pathname);
-    } else {
-      window.history.back();
-    }
-  </script>
-</body>
-</html>
-EOF
-          
-          echo "✅ 404.html created!"
-          ls -lh artifacts/cutstudio-web/dist/public/404.html
-
+      # ⭐ NO 404.html Nahi Banayega!
+      # GitHub Pages automatically serves index.html for unknown routes
+      # We only need to upload dist/public folder
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
