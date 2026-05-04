@@ -1,5 +1,5 @@
-import { Switch, Route, Router as WouterRouter, Redirect, useHashLocation } from "wouter";
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppProvider, useApp } from "@/lib/store";
@@ -8,6 +8,32 @@ import LoadingScreen from "@/pages/loading";
 import Home from "@/pages/home";
 import Login from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
+
+// ✅ CUSTOM HASH LOCATION HOOK (No dependency issues!)
+function useHashLocation() {
+  const [path, setPath] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.hash.replace(/^#\/?/, "") || "/";
+    }
+    return "/";
+  });
+  
+  useEffect(() => {
+    const handleHash = () => {
+      const newPath = window.location.hash.replace(/^#\/?/, "") || "/";
+      setPath(newPath);
+    };
+    
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+  
+  const navigate = (to: string) => {
+    window.location.hash = to;
+  };
+  
+  return [path, navigate] as const;
+}
 
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { currentUser } = useApp();
@@ -34,9 +60,9 @@ function AppRoutes() {
       {/* Root redirect */}
       <Route path="/">
         {currentUser ? (
-          <Redirect to="/dashboard" />
+          <WouterRouter.Redirect to="/dashboard" />
         ) : (
-          <Redirect to="/home" />
+          <WouterRouter.Redirect to="/home" />
         )}
       </Route>
       
@@ -67,7 +93,7 @@ function App() {
   return (
     <AppProvider>
       <TooltipProvider>
-        {/* ✅ HASH ROUTING ENABLED - Fixes 404 on GitHub Pages! */}
+        {/* ✅ HASH ROUTING WITH CUSTOM HOOK! */}
         <WouterRouter 
           base={import.meta.env.BASE_URL.replace(/\/$/, "")}
           hook={useHashLocation}
